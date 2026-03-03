@@ -3,6 +3,28 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 
+# --- SEGURANÇA: LOGIN SIMPLES ---
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "SUA_SENHA_AQUI": # Altere para sua senha
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("Senha de Acesso", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Senha de Acesso", type="password", on_change=password_entered, key="password")
+        st.error("😕 Senha incorreta")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()  # Trava a execução do app aqui se não estiver logado
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon="💸")
 
