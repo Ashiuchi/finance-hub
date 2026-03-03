@@ -6,7 +6,7 @@ from datetime import datetime
 # --- SEGURANÇA: LOGIN SIMPLES ---
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "SUA_SENHA_AQUI": # Altere para sua senha
+        if st.session_state["password"] == "Sand*0515": # Altere para sua senha
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
