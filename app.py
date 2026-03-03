@@ -6,7 +6,8 @@ from datetime import datetime
 # --- SEGURANÇA: LOGIN SIMPLES ---
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "Sand*0515": # Altere para sua senha
+        # Buscamos a senha nas Secrets do Streamlit em vez de deixar no código
+        if st.session_state["password"] == st.secrets["access_password"]:
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
@@ -21,9 +22,6 @@ def check_password():
         return False
     else:
         return True
-
-if not check_password():
-    st.stop()  # Trava a execução do app aqui se não estiver logado
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon="💸")
