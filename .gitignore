@@ -13,5 +13,6 @@ __pycache__/
 .idea/
 
 # Arquivos de Sistema
+.streamlit/
 Thumbs.db
 .DS_Store
