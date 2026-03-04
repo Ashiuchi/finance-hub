@@ -4,34 +4,35 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE (ORDEM OBRIGATÓRIA) ---
+# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE ---
 st.set_page_config(
     page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
     page_icon="💸",
-    initial_sidebar_state="expanded", # Inicia aberta
+    initial_sidebar_state="expanded",
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- PASSO 2: BLINDAGEM VISUAL E SIDEBAR FIXA (CSS) ---
-# Aqui removemos o Header (Git/Fork) e desativamos o botão de fechar a sidebar.
+# --- PASSO 2: BLINDAGEM VISUAL E SIDEBAR FIXA (CSS CORRIGIDO) ---
 st.markdown("""
     <style>
-    /* 1. Esconde o Header inteiro (Fim do Git, Fork e da setinha nativa) */
+    /* 1. Remove o Header (Fim definitiva do Git e Fork) */
     header[data-testid="stHeader"] {
         display: none !important;
     }
     
-    /* 2. Trava a largura da Sidebar e esconde o botão de recolher (setinha) */
+    /* 2. Trava a largura da Sidebar */
     [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
     }
-    [data-testid="stSidebar"] button {
-        display: none !important; 
+
+    /* 3. CORREÇÃO: Esconde APENAS a seta de fechar, mantendo os outros botões (Sair/Novo Template) */
+    [data-testid="stSidebar"] button[title="Collapse sidebar"] {
+        display: none !important;
     }
     
-    /* 3. Ajuste de margem para o conteúdo não colar no topo */
+    /* 4. Ajuste de margem superior */
     .block-container {
         padding-top: 2rem;
     }
@@ -52,7 +53,7 @@ except Exception as e:
     st.error(f"Erro de infraestrutura: {e}")
     st.stop()
 
-# --- PASSO 4: VALIDAÇÃO DE DADOS ---
+# --- PASSO 4: FUNÇÕES DE APOIO ---
 def is_valid_email(email):
     return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
 
@@ -82,7 +83,8 @@ u_log = st.session_state["user_email"]
 # --- PASSO 6: BARRA LATERAL FIXA (CONTEÚDO) ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
-    if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
+    # O botão de Sair voltará a aparecer aqui com o novo CSS
+    if st.button("🚪 Sair", key="btn_logout_final", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
