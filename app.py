@@ -4,7 +4,7 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- 1. CONFIGURAÇÃO DE SEGURANÇA MÁXIMA ---
+# --- 1. CONFIGURAÇÃO DE INTERFACE (BLINDAGEM) ---
 st.set_page_config(
     page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
@@ -13,7 +13,7 @@ st.set_page_config(
     menu_items={
         'Get Help': None,
         'Report a bug': None,
-        'About': None
+        'About': None # Remove link de edição
     }
 )
 
@@ -26,83 +26,57 @@ try:
                                 url=st.secrets["connections"]["supabase"]["url"], 
                                 key=st.secrets["connections"]["supabase"]["key"])
 except Exception as e:
-    st.error(f"Erro de conexão: {e}")
+    st.error(f"Erro de conexão técnica: {e}")
     st.stop()
 
-# --- 3. SISTEMA DE AUTENTICAÇÃO (COM IDS ÚNICOS) ---
+# --- 3. SISTEMA DE LOGIN (FIX: ERRO VERMELHO DE ID) ---
 if "user_email" not in st.session_state:
     st.query_params.clear() 
     st.title("💸 Finance Hub: Acesso")
     t1, t2 = st.tabs(["Login", "Cadastrar"])
     
     with t1:
-        e_login = st.text_input("E-mail", key="in_email_login")
-        p_login = st.text_input("Senha", type="password", key="in_pass_login")
-        if st.button("Entrar", key="btn_auth_login"):
-            res = st_supabase.table("app_users").select("email, is_admin").eq("email", e_login).eq("password", p_login).execute()
+        e_in = st.text_input("E-mail", key="input_user_login_final")
+        p_in = st.text_input("Senha", type="password", key="input_pass_login_final")
+        if st.button("Entrar", key="btn_login_final"):
+            res = st_supabase.table("app_users").select("email, is_admin").eq("email", e_in).eq("password", p_in).execute()
             if res.data:
                 st.session_state["user_email"] = res.data[0]["email"]
                 st.session_state["is_admin"] = res.data[0].get("is_admin", False)
                 st.rerun()
             else:
-                st.error("Credenciais inválidas.")
+                st.error("Dados incorretos.")
     
     with t2:
-        ne_reg = st.text_input("E-mail para Cadastro", key="in_email_reg")
-        np_reg = st.text_input("Crie uma Senha", type="password", key="in_pass_reg")
-        cp_reg = st.text_input("Confirme a Senha", type="password", key="in_pass_conf_reg")
-        if st.button("Criar Conta", key="btn_auth_reg"):
-            if is_valid_email(ne_reg) and np_reg == cp_reg and len(np_reg) >= 6:
+        ne_in = st.text_input("E-mail para Cadastro", key="input_user_reg_final")
+        np_in = st.text_input("Crie uma Senha", type="password", key="input_pass_reg_final")
+        if st.button("Criar Conta", key="btn_reg_final"):
+            if is_valid_email(ne_in) and len(np_in) >= 6:
                 try:
-                    st_supabase.table("app_users").insert([{"email": ne_reg, "password": np_reg}]).execute()
-                    st.success("Conta criada! Vá para o Login.")
+                    st_supabase.table("app_users").insert([{"email": ne_in, "password": np_in}]).execute()
+                    st.success("Sucesso! Vá para o Login.")
                 except:
                     st.error("E-mail já cadastrado.")
-            else:
-                st.error("Verifique os dados informados.")
     st.stop()
 
 # --- 4. VARIÁVEIS PÓS-LOGIN ---
-user_logado = st.session_state["user_email"]
-is_admin = st.session_state.get("is_admin", False)
+u_log = st.session_state["user_email"]
+adm = st.session_state.get("is_admin", False)
 
-# --- 5. DASHBOARD PRINCIPAL ---
-st.title(f"📊 Dashboard Financeiro")
-col_form, col_view = st.columns([1, 2])
-
-with col_form:
-    st.subheader("➕ Novo Registro")
-    with st.form("main_entry_form", clear_on_submit=True):
-        f_date = st.date_input("Data", datetime.now())
-        f_desc = st.text_input("Descrição")
-        f_cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"])
-        f_val = st.number_input("Valor", min_value=0.0, step=0.01)
-        f_tipo = st.radio("Tipo", ["Gasto", "Receita"])
-        if st.form_submit_button("Salvar"):
-            final_v = -f_val if f_tipo == "Gasto" else f_val
-            st_supabase.table("transactions").insert([
-                {"date": f_date.strftime("%Y-%m-%d"), "category": f_cat, "description": f_desc, "value": final_v, "user_email": user_logado}
-            ]).execute()
+# --- 5. SIDEBAR E ADMIN (PASSOS 7 E 8) ---
+with st.sidebar:
+    st.write(f"Usuário: **{u_log}**")
+    if st.button("Sair", key="btn_logout_final"):
+        st.session_state.clear()
+        st.rerun()
+    
+    if adm:
+        st.markdown("---")
+        st.header("🛠️ Administração")
+        id_del = st.number_input("Excluir ID:", min_value=1, step=1, key="input_admin_del")
+        if st.button("Confirmar Exclusão", key="btn_admin_del_confirm"):
+            st_supabase.table("transactions").delete().eq("id", id_del).execute()
             st.rerun()
-
-    # --- 5.1 LANÇAMENTOS RÁPIDOS ---
-    st.markdown("---")
-    st.subheader("⚡ Atalhos")
-    try:
-        templates = st_supabase.table("templates").select("*").eq("user_email", user_logado).execute().data
-        if templates:
-            cols = st.columns(2)
-            for i, t in enumerate(templates):
-                with cols[i % 2]:
-                    if st.button(f"📌 {t['template_name']}", key=f"btn_shortcut_{i}", use_container_width=True):
-                        hoje = datetime.now()
-                        dt_f = hoje.replace(day=10).strftime("%Y-%m-%d") if "Aluguel" in t['template_name'] else hoje.strftime("%Y-%m-%d")
-                        st_supabase.table("transactions").insert([
-                            {"date": dt_f, "category": t['category'], "description": t['description'], "value": t['value'], "user_email": user_logado}
-                        ]).execute()
-                        st.rerun()
-    except:
-        pass
 
 # --- 6. LEITURA E DASHBOARD ---
 try:
