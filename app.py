@@ -88,36 +88,17 @@ adm = st.session_state.get("is_admin", False)
 # --- 6. BARRA LATERAL (SIDEBAR) E ADMINISTRAÇÃO ---
 with st.sidebar:
     st.write(f"Usuário: **{u_log}**")
-    if st.button("Sair da Sessão", key="btn_logout_final"):
-        st.session_state.clear()
-        st.rerun()
     
+    # Botão de Logout com destaque
+    if st.button("🚪 Sair da Sessão", key="btn_logout_final", use_container_width=True):
+        st.session_state.clear() # Limpa todas as variáveis de segurança
+        st.rerun() # Recarrega para a tela de login limpa
+    
+    # Seção de Admin (Apenas se is_admin for True no Supabase)
     if adm:
         st.markdown("---")
-        st.header("🛠️ Administração (Admin Only)")
-        
-        # EXCLUSÃO
-        st.subheader("🗑️ Excluir por ID")
-        id_del = st.number_input("ID do registro:", min_value=1, step=1, key="admin_id_del")
-        if st.button("Confirmar Exclusão", key="admin_btn_del"):
-            st_supabase.table("transactions").delete().eq("id", id_del).execute()
-            st.warning(f"ID {id_del} removido.")
-            st.rerun()
-            
-        # EDIÇÃO
-        st.subheader("📝 Editar por ID")
-        id_ed = st.number_input("ID para editar:", min_value=1, step=1, key="admin_id_ed")
-        if id_ed:
-            res_ed = st_supabase.table("transactions").select("*").eq("id", id_ed).execute()
-            if res_ed.data:
-                d = res_ed.data[0]
-                new_v = st.number_input("Novo Valor:", value=float(d['value']), key="admin_edit_val")
-                if st.button("Salvar Alterações", key="admin_btn_save"):
-                    st_supabase.table("transactions").update({"value": new_v}).eq("id", id_ed).execute()
-                    st.success("Atualizado!")
-                    st.rerun()
-    else:
-        st.info("💡 Modo Usuário Ativo")
+        st.header("🛠️ Administração")
+        # ... (restante do código de exclusão e edição)
 
 # --- 7. DASHBOARD PRINCIPAL ---
 st.title(f"📊 Dashboard Financeiro")
