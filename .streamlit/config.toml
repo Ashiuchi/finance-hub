@@ -1,2 +1,2 @@
-[client]\ntoolbarMode = \
-minimal\
+[client]
+toolbarMode = "minimal"
