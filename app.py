@@ -29,7 +29,6 @@ if not check_password():
 st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon="💸")
 
 # --- 3. CONEXÃO COM SUPABASE ---
-# Usando a forma explícita para evitar o erro de "URL not provided"
 try:
     st_supabase = st.connection(
         "supabase",
@@ -47,207 +46,121 @@ st.markdown("Dados sincronizados: PC Trabalho ↔ Celular")
 
 col_form, col_view = st.columns([1, 2])
 
-# --- 5. FORMULÁRIO DE ENTRADA ---
+# --- 5. ENTRADA DE DADOS ---
 with col_form:
     st.subheader("➕ Nova Transação")
     with st.form("entry_form", clear_on_submit=True):
         date = st.date_input("Data", datetime.now())
         description = st.text_input("Descrição")
-        category = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação", "Salário/Renda"])
+        category = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"])
         value = st.number_input("Valor (R$)", min_value=0.0, step=0.01)
         type_trans = st.radio("Tipo", ["Saída (Gasto)", "Entrada (Receita)"])
         submit = st.form_submit_button("Salvar na Nuvem")
 
     if submit:
         final_value = -value if type_trans == "Saída (Gasto)" else value
-        try:
-            st_supabase.table("transactions").insert([
-                {
-                    "date": date.strftime("%Y-%m-%d"), 
-                    "category": category, 
-                    "description": description, 
-                    "value": final_value
-                }
-            ]).execute()
-            st.success("Sincronizado!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
+        st_supabase.table("transactions").insert([
+            {"date": date.strftime("%Y-%m-%d"), "category": category, "description": description, "value": final_value}
+        ]).execute()
+        st.success("Sincronizado!")
+        st.rerun()
 
-# --- 5.1 LANÇAMENTOS RÁPIDOS (TEMPLATES) ---
-st.markdown("---")
-st.subheader("⚡ Lançamentos Rápidos")
-
-# Busca os templates salvos
-try:
-    templates_res = st_supabase.table("templates").select("*").execute()
-    templates = templates_res.data
-except:
-    templates = []
-
-if templates:
-    # Exibe os templates como botões em colunas
-    cols = st.columns(len(templates) if len(templates) < 4 else 4)
-    for i, t in enumerate(templates):
-        with cols[i % 4]:
-            if st.button(f"📌 {t['template_name']}", use_container_width=True):
-                # Ao clicar, insere na tabela principal com a data de HOJE
-                st_supabase.table("transactions").insert([
-                    {
-                        "date": datetime.now().strftime("%Y-%m-%d"),
-                        "category": t['category'],
-                        "description": t['description'],
-                        "value": t['value']
-                    }
-                ]).execute()
-                st.success(f"{t['template_name']} lançado!")
-                st.rerun()
-else:
-    st.info("Crie templates na aba ao lado para habilitar o lançamento rápido.")
-
-# --- 5.2 GERENCIAR TEMPLATES (EXPANDER) ---
-with st.expander("⚙️ Configurar Novos Templates"):
+    # --- 5.1 LANÇAMENTOS RÁPIDOS (TEMPLATES) ---
     st.markdown("---")
-    st.subheader("🗑️ Remover Atalho")
+    st.subheader("⚡ Lançamentos Rápidos")
     
+    try:
+        templates = st_supabase.table("templates").select("*").execute().data
+    except:
+        templates = []
+
     if templates:
-        # Cria uma lista com os nomes dos templates para o usuário escolher
-        template_para_excluir = st.selectbox(
-            "Selecione o template que deseja remover:", 
-            options=[t['template_name'] for t in templates],
-            key="select_del_template"
-        )
-        
-        if st.button("Excluir Atalho Selecionado", type="secondary"):
-            try:
-                # Remove do Supabase baseado no nome
-                st_supabase.table("templates").delete().eq("template_name", template_para_excluir).execute()
-                st.warning(f"O atalho '{template_para_excluir}' foi removido!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao remover template: {e}")
-    else:
-        st.caption("Nenhum template cadastrado para remover.")
-        
-    with st.form("template_form"):
-        t_name = st.text_input("Nome do Atalho (ex: Aluguel)")
-        t_cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"], key="t_cat")
-        t_desc = st.text_input("Descrição Padrão")
-        t_val = st.number_input("Valor Padrão", step=0.01)
-        t_submit = st.form_submit_button("Salvar como Template")
-
-        if t_submit:
-            st_supabase.table("templates").insert([
-                {"template_name": t_name, "category": t_cat, "description": t_desc, "value": t_val}
-            ]).execute()
-            st.success("Template criado!")
-            st.rerun()
-
-# --- 6. LEITURA E PROCESSAMENTO DE DADOS ---
-try:
-    response = st_supabase.table("transactions").select("*").order("date", desc=True).execute()
-    df = pd.DataFrame(response.data)
+        cols = st.columns(2)
+        for i, t in enumerate(templates):
+            with cols[i % 2]:
+                if st.button(f"📌 {t['template_name']}", use_container_width=True):
+                    hoje = datetime.now()
+                    # Lógica de Data Fixa (Ex: Aluguel no dia 10)
+                    data_final = hoje.replace(day=10).strftime("%Y-%m-%d") if "Aluguel" in t['template_name'] else hoje.strftime("%Y-%m-%d")
+                    
+                    st_supabase.table("transactions").insert([
+                        {"date": data_final, "category": t['category'], "description": t['description'], "value": t['value']}
+                    ]).execute()
+                    st.success(f"Lançado para dia {data_final}!")
+                    st.rerun()
     
+    # --- 5.2 CONFIGURAR TEMPLATES ---
+    with st.expander("⚙️ Configurar Atalhos"):
+        with st.form("new_template"):
+            tn = st.text_input("Nome (ex: Aluguel)")
+            tc = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"])
+            td = st.text_input("Descrição Padrão")
+            tv = st.number_input("Valor Padrão", step=0.01)
+            if st.form_submit_button("Salvar Atalho"):
+                st_supabase.table("templates").insert([{"template_name": tn, "category": tc, "description": td, "value": tv}]).execute()
+                st.rerun()
+        
+        if templates:
+            t_del = st.selectbox("Remover Atalho:", [t['template_name'] for t in templates])
+            if st.button("Excluir Atalho"):
+                st_supabase.table("templates").delete().eq("template_name", t_del).execute()
+                st.rerun()
+
+# --- 6. PROCESSAMENTO E DASHBOARD ---
+try:
+    df = pd.DataFrame(st_supabase.table("transactions").select("*").order("date", desc=True).execute().data)
     if not df.empty:
-        # Converter para datetime
         df['date'] = pd.to_datetime(df['date'])
-        # Criar a coluna de exibição formatada (Apenas Data, sem 00:00:00)
         df['data_formatada'] = df['date'].dt.strftime('%d/%m/%Y')
-        # Criar coluna de Mês/Ano para o filtro
         df['month_year'] = df['date'].dt.strftime('%m/%Y')
-except Exception:
+except:
     df = pd.DataFrame()
 
-# --- 7. DASHBOARD COM INTELIGÊNCIA MENSAL ---
 with col_view:
     if not df.empty:
         st.subheader("📊 Inteligência Financeira")
+        mes_sel = st.selectbox("Período:", df['month_year'].unique())
+        df_mes = df[df['month_year'] == mes_sel].copy()
         
-        # Filtro de Mês
-        meses_disponiveis = df['month_year'].unique()
-        mes_selecionado = st.selectbox("Selecione o período para análise:", meses_disponiveis)
-        
-        # Filtrar DF pelo mês selecionado
-        df_mes = df[df['month_year'] == mes_selecionado].copy()
-        
-        # Cálculos do Mês
-        entradas_mes = df_mes[df_mes['value'] > 0]['value'].sum()
-        saidas_mes = df_mes[df_mes['value'] < 0]['value'].sum()
-        saldo_mes = entradas_mes + saidas_mes
-        
-        # Exibição de Métricas
         m1, m2, m3 = st.columns(3)
-        m1.metric("Receitas", f"R$ {entradas_mes:,.2f}")
-        m2.metric("Gastos", f"R$ {abs(saidas_mes):,.2f}")
-        m3.metric("Saldo Líquido", f"R$ {saldo_mes:,.2f}", delta=f"{saldo_mes:,.2f}")
+        ent = df_mes[df_mes['value'] > 0]['value'].sum()
+        sai = df_mes[df_mes['value'] < 0]['value'].sum()
+        m1.metric("Receitas", f"R$ {ent:,.2f}")
+        m2.metric("Gastos", f"R$ {abs(sai):,.2f}")
+        m3.metric("Saldo", f"R$ {ent+sai:,.2f}", delta=f"{ent+sai:,.2f}")
 
-        st.markdown("---")
-        st.write(f"**Extrato de {mes_selecionado}:**")
+        st.dataframe(df_mes[['id', 'data_formatada', 'category', 'description', 'value']], 
+                     use_container_width=True, hide_index=True, column_config={"data_formatada": "Data"})
         
-        # Exibindo a 'data_formatada' em vez da data bruta com zeros
-        st.dataframe(
-            df_mes[['id', 'data_formatada', 'category', 'description', 'value']], 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={"data_formatada": "Data"} # Renomeia a coluna na visualização
-        )
-        
-        # Gráfico Mensal
-        gastos_mes = df_mes[df_mes['value'] < 0].copy()
-        if not gastos_mes.empty:
-            st.write(f"**Gastos por Categoria em {mes_selecionado}:**")
-            gastos_mes['value'] = gastos_mes['value'].abs()
-            st.bar_chart(gastos_mes.groupby('category')['value'].sum())
+        gastos = df_mes[df_mes['value'] < 0].copy()
+        if not gastos.empty:
+            gastos['value'] = gastos['value'].abs()
+            st.bar_chart(gastos.groupby('category')['value'].sum())
     else:
-        st.info("Nenhum dado na nuvem para analisar.")
+        st.info("Nenhum dado encontrado.")
 
-# --- 8. FERRAMENTAS DE ADM (SIDEBAR) - RECUPERADA ---
+# --- 7. FERRAMENTAS ADM (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("---")
     st.header("🛠️ Administração")
-    st.subheader("🗑️ Excluir Registro")
     
-    # Input para o ID
-    id_del = st.number_input("ID para excluir:", min_value=1, step=1, key="del_id_final")
+    # Exclusão
+    st.subheader("🗑️ Excluir")
+    id_del = st.number_input("ID:", min_value=1, step=1, key="del")
+    if st.button("Confirmar Exclusão"):
+        st_supabase.table("transactions").delete().eq("id", id_del).execute()
+        st.rerun()
     
-    if st.button("Confirmar Exclusão", key="btn_del_final"):
-        try:
-            # Comando para deletar no Supabase
-            st_supabase.table("transactions").delete().eq("id", id_del).execute()
-            st.warning(f"O registro ID {id_del} foi removido com sucesso!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao excluir: {e}")
-
-st.markdown("---")
-st.subheader("📝 Editar Registro")
-    
-# Input para buscar o ID que deseja editar
-id_edit = st.number_input("ID para editar:", min_value=1, step=1, key="edit_id")
-    
-if id_edit:
-    # Busca os dados atuais desse ID no Supabase
-    res_edit = st_supabase.table("transactions").select("*").eq("id", id_edit).execute()
-        
-    if res_edit.data:
-        dados_atuais = res_edit.data[0]
-        st.info(f"Editando: {dados_atuais['description']}")
-        
-        # Campos preenchidos com os valores atuais
-        new_val = st.number_input("Novo Valor:", value=float(dados_atuais['value']), key="new_val")
-        new_cat = st.selectbox("Nova Categoria:", [
-            "Alimentação", "Transporte", "Lazer", "Contas Fixas", 
-            "Saúde", "Educação/Certificações", "Salário/Renda"
-        ], index=["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"].index(dados_atuais['category']), key="new_cat")
-            
-        if st.button("Salvar Alterações", key="btn_update"):
-            # Comando UPDATE no Supabase
-            st_supabase.table("transactions").update({
-                "value": new_val,
-                "category": new_cat
-            }).eq("id", id_edit).execute()
-                
-            st.success(f"Registro {id_edit} atualizado!")
-            st.rerun()
-    else:
-        st.caption("ID não encontrado para edição.")
+    # Edição
+    st.markdown("---")
+    st.subheader("📝 Editar")
+    id_ed = st.number_input("ID:", min_value=1, step=1, key="ed")
+    if id_ed:
+        d_at = st_supabase.table("transactions").select("*").eq("id", id_ed).execute().data
+        if d_at:
+            d = d_at[0]
+            nv = st.number_input("Valor:", value=float(d['value']))
+            nc = st.selectbox("Cat:", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"], 
+                              index=["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"].index(d['category']))
+            if st.button("Salvar"):
+                st_supabase.table("transactions").update({"value": nv, "category": nc}).eq("id", id_ed).execute()
+                st.rerun()
