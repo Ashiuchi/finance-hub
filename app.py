@@ -74,36 +74,51 @@ with col_form:
         except Exception as e:
             st.error(f"Erro ao salvar: {e}")
 
-# --- 6. LEITURA DE DADOS E DASHBOARD ---
+# --- 6. LEITURA E PROCESSAMENTO DE DADOS ---
 try:
     response = st_supabase.table("transactions").select("*").order("date", desc=True).execute()
     df = pd.DataFrame(response.data)
+    
+    if not df.empty:
+        # Converter coluna de data para formato datetime do Python
+        df['date'] = pd.to_datetime(df['date'])
+        # Criar coluna de Mês/Ano para facilitar a filtragem
+        df['month_year'] = df['date'].dt.strftime('%m/%Y')
 except Exception:
     df = pd.DataFrame()
 
+# --- 7. DASHBOARD COM INTELIGÊNCIA MENSAL ---
 with col_view:
-    st.subheader("📊 Histórico Sincronizado")
     if not df.empty:
-        total_balance = df['value'].sum()
-        color = "green" if total_balance >= 0 else "red"
-        st.markdown(f"### Saldo Geral: <span style='color:{color}'>R$ {total_balance:,.2f}</span>", unsafe_allow_html=True)
-        st.dataframe(df.head(15), use_container_width=True, hide_index=True)
+        st.subheader("📊 Inteligência Financeira")
         
-        expenses_df = df[df['value'] < 0].copy()
-        if not expenses_df.empty:
-            expenses_df['value'] = expenses_df['value'].abs()
-            st.bar_chart(expenses_df.groupby('category')['value'].sum())
-    else:
-        st.info("Nenhum dado na nuvem.")
+        # Filtro de Mês na parte superior do dashboard
+        meses_disponiveis = df['month_year'].unique()
+        mes_selecionado = st.selectbox("Selecione o período para análise:", meses_disponiveis)
+        
+        # Filtrar DF pelo mês selecionado
+        df_mes = df[df['month_year'] == mes_selecionado]
+        
+        # Cálculos do Mês
+        entradas_mes = df_mes[df_mes['value'] > 0]['value'].sum()
+        saidas_mes = df_mes[df_mes['value'] < 0]['value'].sum()
+        saldo_mes = entradas_mes + saidas_mes
+        
+        # Exibição de Métricas em Colunas
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Entradas (Receitas)", f"R$ {entradas_mes:,.2f}")
+        m2.metric("Saídas (Gastos)", f"R$ {abs(saidas_mes):,.2f}", delta_color="normal")
+        m3.metric("Saldo do Mês", f"R$ {saldo_mes:,.2f}", delta=f"{saldo_mes:,.2f}")
 
-# --- 7. FERRAMENTAS (SIDEBAR) ---
-with st.sidebar:
-    st.subheader("🗑️ Excluir Registro")
-    id_del = st.number_input("ID para deletar:", min_value=1, step=1, key="del_id")
-    if st.button("Confirmar Exclusão", key="btn_del"):
-        try:
-            st_supabase.table("transactions").delete().eq("id", id_del).execute()
-            st.warning(f"ID {id_del} removido!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Erro ao excluir: {e}")
+        st.markdown("---")
+        st.write(f"**Detalhes de {mes_selecionado}:**")
+        st.dataframe(df_mes[['id', 'date', 'category', 'description', 'value']], use_container_width=True, hide_index=True)
+        
+        # Gráfico de Gastos por Categoria (Apenas do mês selecionado)
+        gastos_mes = df_mes[df_mes['value'] < 0].copy()
+        if not gastos_mes.empty:
+            st.write(f"**Onde você gastou em {mes_selecionado}:**")
+            gastos_mes['value'] = gastos_mes['value'].abs()
+            st.bar_chart(gastos_mes.groupby('category')['value'].sum())
+    else:
+        st.info("Nenhum dado na nuvem para analisar.")
