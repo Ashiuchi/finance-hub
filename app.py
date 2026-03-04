@@ -31,6 +31,9 @@ st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon
 # --- 3. CONEXÃO COM SUPABASE (NUVEM) ---
 # Ele busca automaticamente as chaves que você colocou nas Secrets do Streamlit
 st_supabase = st.connection("supabase", type=SupabaseConnection)
+# Linha de teste (apague depois)
+if "connections" not in st.secrets:
+    st.error("O Streamlit não está lendo a seção [connections.supabase] das Secrets!")
 
 # --- 4. INTERFACE PRINCIPAL ---
 st.title("💸 Finance Hub: Gestão na Nuvem")
