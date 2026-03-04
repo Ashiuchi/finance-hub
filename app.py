@@ -4,46 +4,50 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE ---
+# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE (ORDEM OBRIGATÓRIA) ---
 st.set_page_config(
     page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
     page_icon="💸",
-    initial_sidebar_state="expanded", # Garante que inicie aberta
+    initial_sidebar_state="expanded", # Inicia aberta
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- PASSO 2: BLINDAGEM VISUAL E SIDEBAR ESTÁTICA (CSS) ---
+# --- PASSO 2: BLINDAGEM VISUAL E SIDEBAR FIXA (CSS) ---
+# Aqui removemos o Header (Git/Fork) e desativamos o botão de fechar a sidebar.
 st.markdown("""
     <style>
-    /* 1. Remove o Header (Fim do Git, Fork e da setinha nativa) */
+    /* 1. Esconde o Header inteiro (Fim do Git, Fork e da setinha nativa) */
     header[data-testid="stHeader"] {
         display: none !important;
     }
     
-    /* 2. Trava a Sidebar para nunca fechar e remove o botão de recolher */
+    /* 2. Trava a largura da Sidebar e esconde o botão de recolher (setinha) */
     [data-testid="stSidebar"] {
         min-width: 260px !important;
         max-width: 260px !important;
     }
-    [data-testid="stSidebarNav"] button {
+    [data-testid="stSidebar"] button {
         display: none !important; 
     }
     
-    /* 3. Ajuste de margem superior para o conteúdo não bater no topo */
+    /* 3. Ajuste de margem para o conteúdo não colar no topo */
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 2rem;
     }
     
     footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- PASSO 3: CONEXÃO SUPABASE ---
+# --- PASSO 3: CONEXÃO COM O BANCO DE DADOS ---
 try:
-    st_supabase = st.connection("supabase", type=SupabaseConnection, 
-                                url=st.secrets["connections"]["supabase"]["url"], 
-                                key=st.secrets["connections"]["supabase"]["key"])
+    st_supabase = st.connection(
+        "supabase",
+        type=SupabaseConnection,
+        url=st.secrets["connections"]["supabase"]["url"],
+        key=st.secrets["connections"]["supabase"]["key"]
+    )
 except Exception as e:
     st.error(f"Erro de infraestrutura: {e}")
     st.stop()
@@ -75,7 +79,7 @@ if "user_email" not in st.session_state:
 
 u_log = st.session_state["user_email"]
 
-# --- PASSO 6: BARRA LATERAL ESTÁTICA (CONTEÚDO) ---
+# --- PASSO 6: BARRA LATERAL FIXA (CONTEÚDO) ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
     if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
@@ -102,18 +106,18 @@ with st.sidebar:
                 st.rerun()
     except: pass
 
-# --- PASSO 8: ÁREA DE ADMINISTRAÇÃO E LANÇAMENTOS ---
+# --- PASSO 8: ÁREA DE LANÇAMENTOS E ADMINISTRAÇÃO ---
 st.title("📊 Painel de Controle")
-c1, c2 = st.columns([1, 2])
-with c1:
+col1, col2 = st.columns([1, 2])
+with col1:
     st.subheader("➕ Novo Registro")
-    with st.form("f_add_entry", clear_on_submit=True):
+    with st.form("f_add_main", clear_on_submit=True):
         d, ds = st.date_input("Data", datetime.now()), st.text_input("Descrição")
-        cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Certificações", "Salário/Renda"])
+        c = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Certificações", "Salário/Renda"])
         v, t = st.number_input("Valor", min_value=0.0, step=0.01), st.radio("Tipo", ["Gasto", "Receita"])
         if st.form_submit_button("Salvar"):
             val_f = -v if t == "Gasto" else v
-            st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "user_email": u_log}]).execute()
+            st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": c, "description": ds, "value": val_f, "user_email": u_log}]).execute()
             st.rerun()
 
     st.markdown("---")
@@ -130,21 +134,19 @@ with c1:
                 st_supabase.table("transactions").update({"value": nv}).eq("id", id_op).execute()
                 st.rerun()
 
-# --- PASSO 9: DASHBOARD E MÉTRICAS ---
+# --- PASSO 9: DASHBOARD E VISUALIZAÇÃO ---
 try:
     data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).order("date", desc=True).execute().data
     df = pd.DataFrame(data_res)
     if not df.empty:
         df['date'] = pd.to_datetime(df['date'])
         df['m_y'] = df['date'].dt.strftime('%m/%Y')
-        with c2:
+        with col2:
             st.subheader("📊 Resumo Mensal")
-            m_s = st.selectbox("Selecione o Mês:", df['m_y'].unique())
+            m_s = st.selectbox("Mês:", df['m_y'].unique())
             df_m = df[df['m_y'] == m_s]
-            ent, sai = df_m[df_m['value'] > 0]['value'].sum(), df_m[df_m['value'] < 0]['value'].sum()
+            e, s = df_m[df_m['value'] > 0]['value'].sum(), df_m[df_m['value'] < 0]['value'].sum()
             m1, m2, m3 = st.columns(3)
-            m1.metric("Entradas", f"R$ {ent:,.2f}")
-            m2.metric("Saídas", f"R$ {abs(sai):,.2f}")
-            m3.metric("Saldo", f"R$ {ent+sai:,.2f}")
+            m1.metric("Entradas", f"R$ {e:,.2f}"); m2.metric("Saídas", f"R$ {abs(s):,.2f}"); m3.metric("Saldo", f"R$ {e+s:,.2f}")
             st.dataframe(df_m[['id', 'date', 'category', 'description', 'value']], use_container_width=True, hide_index=True)
 except: pass
