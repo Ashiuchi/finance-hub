@@ -88,6 +88,17 @@ with col_view:
         
         st.markdown(f"### Saldo Atual: <span style='color:{color}'>R$ {total_balance:,.2f}</span>", unsafe_allow_html=True)
         st.dataframe(df.head(15), use_container_width=True, hide_index=True)
+
+        # --- SEÇÃO DE EXCLUSÃO ---
+        st.markdown("---")
+        st.subheader("🗑️ Excluir Registro")
+        with st.expander("Clique para expandir e excluir"):
+            id_to_delete = st.number_input("Digite o ID da transação para excluir:", min_value=1, step=1)
+            if st.button("Confirmar Exclusão"):
+                c.execute("DELETE FROM transactions WHERE id = ?", (id_to_delete,))
+                conn.commit()
+                st.warning(f"Registro ID {id_to_delete} removido!")
+                st.rerun()
         
         # Gráfico de Gastos por Categoria 
         st.subheader("Distribuição de Gastos")
