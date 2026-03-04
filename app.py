@@ -4,7 +4,7 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE (Sempre a primeira linha) ---
+# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE ---
 st.set_page_config(
     page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
@@ -13,15 +13,16 @@ st.set_page_config(
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- PASSO 2: BLINDAGEM VISUAL (CSS) ---
-# Esconde o Git e botões de desenvolvedor, mas preserva a seta da Sidebar.
+# --- PASSO 2: SEGURANÇA DO CÓDIGO (CSS CIRÚRGICO) ---
+# Alvo: Apenas o link que aponta para o GitHub, sem afetar a seta da sidebar ou outros menus.
 st.markdown("""
     <style>
-    .stAppDeployButton, a[href*="github.com"], .st-emotion-cache-15ec669 {
+    /* Esconde apenas o link/ícone que contém o redirecionamento para o GitHub */
+    a[href*="github.com"] {
         display: none !important;
     }
+    /* Remove o rodapé padrão */
     footer {visibility: hidden;}
-    [data-testid="stSidebarNav"] { visibility: visible; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -39,7 +40,6 @@ except Exception as e:
 
 # --- PASSO 4: FUNÇÕES DE APOIO ---
 def is_valid_email(email):
-    """Garante que o e-mail tenha o formato correto."""
     padrao = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(padrao, email) is not None
 
@@ -79,13 +79,13 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- PASSO 7: GESTÃO DE TEMPLATES (CRIAR E DELETAR) ---
+# --- PASSO 7: GESTÃO DE TEMPLATES ---
     st.markdown("---")
     st.subheader("⚙️ Meus Templates")
     with st.expander("➕ Novo Template"):
         with st.form("f_new_tmp", clear_on_submit=True):
             tn = st.text_input("Nome (ex: Internet)")
-            tc = st.selectbox("Categoria", ["Alimentação", "Transporte", "Contas Fixas", "Saúde", "Educação", "Certificações", "Salário/Renda"])
+            tc = st.selectbox("Categoria", ["Alimentação", "Transporte", "Contas Fixas", "Saúde", "Educação", "Salário/Renda"])
             td = st.text_input("Descrição padrão")
             tv = st.number_input("Valor padrão", step=0.01)
             if st.form_submit_button("Criar"):
@@ -101,7 +101,7 @@ with st.sidebar:
                 st.rerun()
     except: pass
 
-# --- PASSO 8: ÁREA DE LANÇAMENTOS E EDIÇÃO (PARA TODOS) ---
+# --- PASSO 8: LANÇAMENTOS E FERRAMENTAS ---
 st.title("📊 Painel Financeiro")
 col1, col2 = st.columns([1, 2])
 
@@ -145,7 +145,7 @@ with col1:
                     st_supabase.table("transactions").update({"value": nv}).eq("id", id_op).execute()
                     st.rerun()
 
-# --- PASSO 9: DASHBOARD E VISUALIZAÇÃO ---
+# --- PASSO 9: VISUALIZAÇÃO E DASHBOARD ---
 try:
     data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).order("date", desc=True).execute().data
     df = pd.DataFrame(data_res)
