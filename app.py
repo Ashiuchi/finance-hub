@@ -107,6 +107,28 @@ else:
 
 # --- 5.2 GERENCIAR TEMPLATES (EXPANDER) ---
 with st.expander("⚙️ Configurar Novos Templates"):
+    st.markdown("---")
+    st.subheader("🗑️ Remover Atalho")
+    
+    if templates:
+        # Cria uma lista com os nomes dos templates para o usuário escolher
+        template_para_excluir = st.selectbox(
+            "Selecione o template que deseja remover:", 
+            options=[t['template_name'] for t in templates],
+            key="select_del_template"
+        )
+        
+        if st.button("Excluir Atalho Selecionado", type="secondary"):
+            try:
+                # Remove do Supabase baseado no nome
+                st_supabase.table("templates").delete().eq("template_name", template_para_excluir).execute()
+                st.warning(f"O atalho '{template_para_excluir}' foi removido!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao remover template: {e}")
+    else:
+        st.caption("Nenhum template cadastrado para remover.")
+        
     with st.form("template_form"):
         t_name = st.text_input("Nome do Atalho (ex: Aluguel)")
         t_cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"], key="t_cat")
