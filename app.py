@@ -88,17 +88,6 @@ with col_view:
         
         st.markdown(f"### Saldo Atual: <span style='color:{color}'>R$ {total_balance:,.2f}</span>", unsafe_allow_html=True)
         st.dataframe(df.head(15), use_container_width=True, hide_index=True)
-
-        # --- SEÇÃO DE EXCLUSÃO ---
-        st.markdown("---")
-        st.subheader("🗑️ Excluir Registro")
-        with st.expander("Clique para expandir e excluir"):
-            id_to_delete = st.number_input("Digite o ID da transação para excluir:", min_value=1, step=1)
-            if st.button("Confirmar Exclusão"):
-                c.execute("DELETE FROM transactions WHERE id = ?", (id_to_delete,))
-                conn.commit()
-                st.warning(f"Registro ID {id_to_delete} removido!")
-                st.rerun()
         
         # Gráfico de Gastos por Categoria 
         st.subheader("Distribuição de Gastos")
@@ -113,11 +102,10 @@ with col_view:
 st.markdown("---")
 with st.expander("🛠️ Ferramentas de Administrador"):
     st.subheader("Excluir Transação Específica")
-    # Busca o ID para garantir que o usuário saiba o que está deletando
-    id_para_deletar = st.number_input("Informe o ID da transação:", min_value=1, step=1)
+    id_para_deletar = st.number_input("Informe o ID da transação:", min_value=1, step=1, key="input_del_admin")
     
-    if st.button("Confirmar Exclusão", type="secondary"):
-        # Verifica se o ID existe antes de tentar deletar
+    # Adicionando uma key única para o botão
+    if st.button("Confirmar Exclusão", type="secondary", key="btn_del_admin"):
         c.execute("SELECT id FROM transactions WHERE id = ?", (id_para_deletar,))
         if c.fetchone():
             c.execute("DELETE FROM transactions WHERE id = ?", (id_para_deletar,))
@@ -128,7 +116,8 @@ with st.expander("🛠️ Ferramentas de Administrador"):
             st.error("ID não encontrado no banco de dados.")
 
     st.markdown("---")
-    if st.button("⚠️ LIMPAR TODO O BANCO DE DADOS"):
+    # Adicionando uma key única para o botão de limpeza total
+    if st.button("⚠️ LIMPAR TODO O BANCO DE DADOS", key="btn_clear_all"):
         c.execute("DELETE FROM transactions")
         conn.commit()
         st.warning("Todos os dados foram apagados.")
