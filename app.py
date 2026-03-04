@@ -87,6 +87,7 @@ adm = st.session_state.get("is_admin", False)
 
 # --- 6. BARRA LATERAL (SIDEBAR) E ADMINISTRAÇÃO ---
 with st.sidebar:
+    st.set_page_config(..., initial_sidebar_state="expanded")
     st.write(f"Usuário: **{u_log}**")
     
     # Botão de Logout com destaque
