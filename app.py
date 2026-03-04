@@ -74,6 +74,53 @@ with col_form:
         except Exception as e:
             st.error(f"Erro ao salvar: {e}")
 
+# --- 5.1 LANÇAMENTOS RÁPIDOS (TEMPLATES) ---
+st.markdown("---")
+st.subheader("⚡ Lançamentos Rápidos")
+
+# Busca os templates salvos
+try:
+    templates_res = st_supabase.table("templates").select("*").execute()
+    templates = templates_res.data
+except:
+    templates = []
+
+if templates:
+    # Exibe os templates como botões em colunas
+    cols = st.columns(len(templates) if len(templates) < 4 else 4)
+    for i, t in enumerate(templates):
+        with cols[i % 4]:
+            if st.button(f"📌 {t['template_name']}", use_container_width=True):
+                # Ao clicar, insere na tabela principal com a data de HOJE
+                st_supabase.table("transactions").insert([
+                    {
+                        "date": datetime.now().strftime("%Y-%m-%d"),
+                        "category": t['category'],
+                        "description": t['description'],
+                        "value": t['value']
+                    }
+                ]).execute()
+                st.success(f"{t['template_name']} lançado!")
+                st.rerun()
+else:
+    st.info("Crie templates na aba ao lado para habilitar o lançamento rápido.")
+
+# --- 5.2 GERENCIAR TEMPLATES (EXPANDER) ---
+with st.expander("⚙️ Configurar Novos Templates"):
+    with st.form("template_form"):
+        t_name = st.text_input("Nome do Atalho (ex: Aluguel)")
+        t_cat = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"], key="t_cat")
+        t_desc = st.text_input("Descrição Padrão")
+        t_val = st.number_input("Valor Padrão", step=0.01)
+        t_submit = st.form_submit_button("Salvar como Template")
+
+        if t_submit:
+            st_supabase.table("templates").insert([
+                {"template_name": t_name, "category": t_cat, "description": t_desc, "value": t_val}
+            ]).execute()
+            st.success("Template criado!")
+            st.rerun()
+
 # --- 6. LEITURA E PROCESSAMENTO DE DADOS ---
 try:
     response = st_supabase.table("transactions").select("*").order("date", desc=True).execute()
