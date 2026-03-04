@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 from datetime import datetime
+from st_supabase_connection import SupabaseConnection
 
 # --- 1. FUNÇÃO DE SEGURANÇA (AUTENTICAÇÃO) ---
 def check_password():
@@ -36,8 +37,7 @@ if not check_password():
 st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon="💸")
 
 # --- 4. CONEXÃO COM BANCO DE DADOS ---
-conn = sqlite3.connect('finance.db', check_same_thread=False)
-c = conn.cursor()
+st_supabase = st.connection("supabase", type=SupabaseConnection)
 
 # Criação da tabela de transações 
 c.execute('''CREATE TABLE IF NOT EXISTS transactions 
@@ -68,16 +68,16 @@ with col_form:
         submit = st.form_submit_button("Salvar")
 
     if submit:
-        # Saídas ficam negativas para facilitar cálculos 
-        final_value = -value if type_trans == "Saída (Gasto)" else value
-        c.execute("INSERT INTO transactions (date, category, description, value) VALUES (?,?,?,?)",
-                  (date.strftime("%Y-%m-%d"), category, description, final_value))
-        conn.commit()
-        st.success("Registrado com sucesso!")
-        st.rerun()
+    final_value = -value if type_trans == "Saída (Gasto)" else value
+    st_supabase.table("transactions").insert([
+        {"date": date.strftime("%Y-%m-%d"), "category": category, "description": description, "value": final_value}
+    ]).execute()
+    st.success("Registrado na Nuvem!")
+    st.rerun()
 
 # --- 7. EXIBIÇÃO E DASHBOARD ---
-df = pd.read_sql_query("SELECT * FROM transactions ORDER BY date DESC", conn)
+response = st_supabase.table("transactions").select("*").order("date", desc=True).execute()
+df = pd.DataFrame(response.data)
 
 with col_view:
     st.subheader("📊 Histórico e Saldo")
@@ -116,6 +116,7 @@ with st.expander("🛠️ Ferramentas de Administrador"):
             st.error("ID não encontrado no banco de dados.")
 
     st.markdown("---")
+
     # Adicionando uma key única para o botão de limpeza total
     if st.button("⚠️ LIMPAR TODO O BANCO DE DADOS", key="btn_clear_all"):
         c.execute("DELETE FROM transactions")
