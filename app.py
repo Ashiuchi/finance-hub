@@ -149,3 +149,36 @@ with st.sidebar:
             st.rerun()
         except Exception as e:
             st.error(f"Erro ao excluir: {e}")
+
+st.markdown("---")
+st.subheader("📝 Editar Registro")
+    
+# Input para buscar o ID que deseja editar
+id_edit = st.number_input("ID para editar:", min_value=1, step=1, key="edit_id")
+    
+if id_edit:
+    # Busca os dados atuais desse ID no Supabase
+    res_edit = st_supabase.table("transactions").select("*").eq("id", id_edit).execute()
+        
+    if res_edit.data:
+        dados_atuais = res_edit.data[0]
+        st.info(f"Editando: {dados_atuais['description']}")
+        
+        # Campos preenchidos com os valores atuais
+        new_val = st.number_input("Novo Valor:", value=float(dados_atuais['value']), key="new_val")
+        new_cat = st.selectbox("Nova Categoria:", [
+            "Alimentação", "Transporte", "Lazer", "Contas Fixas", 
+            "Saúde", "Educação/Certificações", "Salário/Renda"
+        ], index=["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação/Certificações", "Salário/Renda"].index(dados_atuais['category']), key="new_cat")
+            
+        if st.button("Salvar Alterações", key="btn_update"):
+            # Comando UPDATE no Supabase
+            st_supabase.table("transactions").update({
+                "value": new_val,
+                "category": new_cat
+            }).eq("id", id_edit).execute()
+                
+            st.success(f"Registro {id_edit} atualizado!")
+            st.rerun()
+    else:
+        st.caption("ID não encontrado para edição.")
