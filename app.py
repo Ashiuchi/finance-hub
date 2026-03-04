@@ -3,30 +3,30 @@ import pandas as pd
 from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 
-# --- 1. FUNÇÃO DE SEGURANÇA (AUTENTICAÇÃO) ---
+# --- 1. SEGURANÇA MULTI-USUÁRIO ---
 def check_password():
-    def password_entered():
-        if st.session_state["password"] == st.secrets["access_password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input("Senha de Acesso", type="password", on_change=password_entered, key="password")
+    if "user_email" not in st.session_state:
+        email = st.text_input("E-mail")
+        senha = st.text_input("Senha", type="password")
+        if st.button("Login"):
+            # Verifica se o e-mail existe nas secrets e se a senha bate
+            if email in st.secrets["users"] and st.secrets["users"][email] == senha:
+                st.session_state["user_email"] = email
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
         return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Senha de Acesso", type="password", on_change=password_entered, key="password")
-        st.error("😕 Senha incorreta.")
-        return False
-    else:
-        return True
+    return True
 
 if not check_password():
     st.stop()
 
-# --- 2. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon="💸")
+user_logado = st.session_state["user_email"]
+st.sidebar.write(f"Logado como: **{user_logado}**")
+
+# --- 2. FILTRAGEM DE DADOS (Exemplo na Busca) ---
+# Agora toda busca leva o filtro do e-mail
+res = st_supabase.table("transactions").select("*").eq("user_email", user_logado).execute()
 
 # --- 3. CONEXÃO COM SUPABASE ---
 try:
