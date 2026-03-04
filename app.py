@@ -30,6 +30,13 @@ st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", page_icon
 
 # --- 3. CONEXÃO COM SUPABASE (NUVEM) ---
 # Ele busca automaticamente as chaves que você colocou nas Secrets do Streamlit
+# Passando as credenciais manualmente para garantir a conexão
+st_supabase = st.connection(
+    "supabase",
+    type=SupabaseConnection,
+    url=st.secrets["connections"]["supabase"]["url"],
+    key=st.secrets["connections"]["supabase"]["key"]
+)
 st_supabase = st.connection("supabase", type=SupabaseConnection)
 # Linha de teste (apague depois)
 if "connections" not in st.secrets:
