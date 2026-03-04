@@ -13,15 +13,22 @@ st.set_page_config(
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- PASSO 2: BLINDAGEM VISUAL (CSS CIRÚRGICO) ---
-# Aqui atacamos apenas os botões de Git e Edit, mantendo a seta da sidebar viva.
+# --- PASSO 2: BLINDAGEM VISUAL (CSS ULTRA-RESTRITIVO) ---
+# O segredo aqui é esconder o link que contém "github.com" e a classe específica do botão de deploy
 st.markdown("""
     <style>
-    /* Esconde o ícone do GitHub e o botão de edição (lápis) */
-    .stAppDeployButton, a[href*="github.com"], .st-emotion-cache-15ec669, [data-testid="stHeader"] button:nth-child(2) {
+    /* Esconde o ícone do GitHub especificamente pelo link e pela classe de ícone */
+    a[href*="github.com"], .stAppDeployButton, svg[viewBox="0 0 24 24"] path[d*="M12 .297c-6.63"] {
         display: none !important;
     }
-    /* Remove o rodapé */
+    /* Esconde o menu de três pontos e o lápis de edição */
+    #MainMenu, .st-emotion-cache-15ec669 {
+        visibility: hidden;
+    }
+    /* Mantém a seta da barra lateral visível e funcional */
+    [data-testid="stSidebarNav"] {
+        visibility: visible;
+    }
     footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
@@ -55,14 +62,14 @@ if "user_email" not in st.session_state:
             else: st.error("Dados incorretos.")
     with t2:
         ne = st.text_input("Novo E-mail", key="r_e")
-        np = st.text_input("Senha", type="password", key="r_p")
+        np = st.text_input("Senha (mín. 6 chars)", type="password", key="r_p")
         if st.button("Cadastrar", key="r_b"):
             if is_valid_email(ne) and len(np) >= 6:
                 st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
-                st.success("Criado!")
+                st.success("Criado! Faça o login.")
     st.stop()
 
-# --- PASSO 5 E 6: VARIÁVEIS E SIDEBAR ---
+# --- PASSO 5, 6 E 7: VARIÁVEIS, SIDEBAR E ADMIN ---
 u_log = st.session_state["user_email"]
 adm = st.session_state.get("is_admin", False)
 
@@ -72,7 +79,6 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- PASSO 7: ADMINISTRAÇÃO (EXCLUIR E EDITAR) ---
     if adm:
         st.markdown("---")
         st.header("🛠️ Administração")
