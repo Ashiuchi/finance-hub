@@ -2,6 +2,8 @@
 *.db
 *.sqlite3
 
+secrets.toml
+
 # Ambiente Virtual (Arquivos pesados do Python)
 .venv/
 venv/

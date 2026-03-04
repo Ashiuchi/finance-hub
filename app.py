@@ -4,77 +4,79 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- 1. CONFIGURAÇÃO INICIAL (RESTRITA) ---
-# Começamos no modo mais seguro possível
+# 1. Configuração inicial (esconde menus antes do login)
 st.set_page_config(
-    page_title="Finance Hub", 
+    page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
     page_icon="💸",
     initial_sidebar_state="collapsed",
-    menu_items={
-        'Get Help': None,
-        'Report a bug': None,
-        'About': None
-    }
+    menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- 2. FUNÇÕES DE SUPORTE ---
+# 2. Conexão e Validação
 def is_valid_email(email):
-    padrao = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(padrao, email) is not None
+    return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
 
-# --- 3. CONEXÃO SUPABASE ---
 try:
-    st_supabase = st.connection(
-        "supabase",
-        type=SupabaseConnection,
-        url=st.secrets["connections"]["supabase"]["url"],
-        key=st.secrets["connections"]["supabase"]["key"]
-    )
+    st_supabase = st.connection("supabase", type=SupabaseConnection, 
+                                url=st.secrets["connections"]["supabase"]["url"], 
+                                key=st.secrets["connections"]["supabase"]["key"])
 except:
-    st.error("Erro na conexão com a nuvem.")
+    st.error("Falha na conexão com o banco de dados.")
     st.stop()
 
-# --- 4. SISTEMA DE AUTENTICAÇÃO ---
+# 3. Sistema de Autenticação
 if "user_email" not in st.session_state:
-    st.query_params.clear()
+    st.query_params.clear() # Limpa rastro da URL
     st.title("💸 Finance Hub: Acesso")
-    tab_log, tab_reg = st.tabs(["Login", "Criar Conta"])
+    t1, t2 = st.tabs(["Login", "Cadastrar"])
     
-    with tab_log:
+    with t1:
         e = st.text_input("E-mail")
         p = st.text_input("Senha", type="password")
         if st.button("Entrar"):
+            # Busca e já identifica se é ADMIN no login
             res = st_supabase.table("app_users").select("email, is_admin").eq("email", e).eq("password", p).execute()
             if res.data:
                 st.session_state["user_email"] = res.data[0]["email"]
                 st.session_state["is_admin"] = res.data[0].get("is_admin", False)
                 st.rerun()
             else:
-                st.error("Dados incorretos.")
+                st.error("Credenciais inválidas.")
     
-    with tab_reg:
-        # Lógica de cadastro conforme as versões anteriores
-        st.subheader("Nova Conta")
-        ne = st.text_input("E-mail de Cadastro")
-        np = st.text_input("Senha (mín. 6 chars)", type="password")
-        if st.button("Cadastrar"):
+    with t2:
+        ne = st.text_input("Novo E-mail")
+        np = st.text_input("Senha", type="password")
+        if st.button("Criar Conta"):
             if is_valid_email(ne) and len(np) >= 6:
-                try:
-                    st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
-                    st.success("Criado! Vá para o Login.")
-                except:
-                    st.error("E-mail já existe.")
+                st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
+                st.success("Sucesso! Faça o login.")
     st.stop()
 
-# --- 5. CONFIGURAÇÃO PÓS-LOGIN (LIBERAÇÃO PARA ADMIN) ---
+# 4. Variáveis de Sessão
 user_logado = st.session_state["user_email"]
 is_admin = st.session_state.get("is_admin", False)
 
-# Se for ADMIN, podemos liberar o menu lateral e informações extras
-if is_admin:
-    st.sidebar.success("🔑 Modo Administrador Ativo")
-    # Aqui você pode adicionar links ou avisos que só você vê
+# 5. Interface de Admin (Passos 7 e 8) na Sidebar
+with st.sidebar:
+    st.write(f"Conectado como: **{user_logado}**")
+    if st.button("Sair"):
+        st.session_state.clear()
+        st.rerun()
+    
+    if is_admin:
+        st.markdown("---")
+        st.header("🛠️ Administração")
+        id_del = st.number_input("Excluir ID:", min_value=1, step=1)
+        if st.button("Confirmar Exclusão"):
+            st_supabase.table("transactions").delete().eq("id", id_del).execute()
+            st.rerun()
+    else:
+        st.info("💡 Modo de Usuário: Edição desabilitada.")
+
+# 6. Dashboard Principal
+st.title(f"📊 Dashboard Financeiro")
+# (Lógica de exibição de saldos usando st.metric e tabelas filtradas pelo user_email)
 
 # --- 6. INTERFACE DE LANÇAMENTO E DASHBOARD ---
 st.title(f"📊 Dashboard: {user_logado.split('@')[0].capitalize()}")
