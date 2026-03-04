@@ -108,3 +108,28 @@ with col_view:
             st.bar_chart(expenses_df.groupby('category')['value'].sum())
     else:
         st.info("Nenhum registro encontrado. Comece pelo formulário!")
+
+# --- 9. GESTÃO DE DADOS (EXCLUIR REGISTRO) ---
+st.markdown("---")
+with st.expander("🛠️ Ferramentas de Administrador"):
+    st.subheader("Excluir Transação Específica")
+    # Busca o ID para garantir que o usuário saiba o que está deletando
+    id_para_deletar = st.number_input("Informe o ID da transação:", min_value=1, step=1)
+    
+    if st.button("Confirmar Exclusão", type="secondary"):
+        # Verifica se o ID existe antes de tentar deletar
+        c.execute("SELECT id FROM transactions WHERE id = ?", (id_para_deletar,))
+        if c.fetchone():
+            c.execute("DELETE FROM transactions WHERE id = ?", (id_para_deletar,))
+            conn.commit()
+            st.success(f"Registro {id_para_deletar} removido com sucesso!")
+            st.rerun()
+        else:
+            st.error("ID não encontrado no banco de dados.")
+
+    st.markdown("---")
+    if st.button("⚠️ LIMPAR TODO O BANCO DE DADOS"):
+        c.execute("DELETE FROM transactions")
+        conn.commit()
+        st.warning("Todos os dados foram apagados.")
+        st.rerun()
