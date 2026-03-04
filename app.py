@@ -4,7 +4,7 @@ from st_supabase_connection import SupabaseConnection
 from datetime import datetime
 import re
 
-# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE ---
+# --- PASSO 1: CONFIGURAÇÃO DE INTERFACE (ORDEM OBRIGATÓRIA) ---
 st.set_page_config(
     page_title="Finance Hub - Ashiuchi", 
     layout="wide", 
@@ -13,66 +13,57 @@ st.set_page_config(
     menu_items={'Get Help': None, 'Report a bug': None, 'About': None}
 )
 
-# --- PASSO 2: SEGURANÇA DO CÓDIGO (CSS CIRÚRGICO) ---
-# Alvo: Apenas o link que aponta para o GitHub, sem afetar a seta da sidebar ou outros menus.
+# --- PASSO 2: BLINDAGEM VISUAL (CSS) ---
 st.markdown("""
     <style>
-    /* Esconde apenas o link/ícone que contém o redirecionamento para o GitHub */
-    a[href*="github.com"] {
+    /* Esconde o Git e o DeployButton via CSS caso o TOML demore a propagar */
+    .stAppDeployButton, a[href*="github.com"], .st-emotion-cache-15ec669 {
         display: none !important;
     }
-    /* Remove o rodapé padrão */
     footer {visibility: hidden;}
+    [data-testid="stSidebarNav"] { visibility: visible; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- PASSO 3: CONEXÃO COM O BANCO DE DADOS ---
+# --- PASSO 3: CONEXÃO SUPABASE ---
 try:
-    st_supabase = st.connection(
-        "supabase",
-        type=SupabaseConnection,
-        url=st.secrets["connections"]["supabase"]["url"],
-        key=st.secrets["connections"]["supabase"]["key"]
-    )
+    st_supabase = st.connection("supabase", type=SupabaseConnection, 
+                                url=st.secrets["connections"]["supabase"]["url"], 
+                                key=st.secrets["connections"]["supabase"]["key"])
 except Exception as e:
-    st.error(f"Erro de infraestrutura: {e}")
+    st.error(f"Erro de conexão: {e}")
     st.stop()
 
-# --- PASSO 4: FUNÇÕES DE APOIO ---
+# --- PASSO 4: VALIDAÇÃO DE DADOS ---
 def is_valid_email(email):
-    padrao = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(padrao, email) is not None
+    return re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email) is not None
 
-# --- PASSO 5: SISTEMA DE AUTENTICAÇÃO ---
+# --- PASSO 5: SISTEMA DE ACESSO ---
 if "user_email" not in st.session_state:
     st.query_params.clear() 
     st.title("💸 Finance Hub: Acesso")
     t1, t2 = st.tabs(["Login", "Cadastrar"])
-    
     with t1:
-        e_l = st.text_input("E-mail", key="l_email")
-        p_l = st.text_input("Senha", type="password", key="l_pass")
+        e_in = st.text_input("E-mail", key="l_email")
+        p_in = st.text_input("Senha", type="password", key="l_pass")
         if st.button("Entrar", key="l_btn"):
-            res = st_supabase.table("app_users").select("email").eq("email", e_l).eq("password", p_l).execute()
+            res = st_supabase.table("app_users").select("email").eq("email", e_in).eq("password", p_in).execute()
             if res.data:
                 st.session_state["user_email"] = res.data[0]["email"]
                 st.rerun()
             else: st.error("Dados incorretos.")
-            
     with t2:
         ne = st.text_input("E-mail para Cadastro", key="r_email")
-        np = st.text_input("Crie uma Senha", type="password", key="r_pass")
+        np = st.text_input("Senha", type="password", key="r_pass")
         if st.button("Criar Conta", key="r_btn"):
             if is_valid_email(ne) and len(np) >= 6:
-                try:
-                    st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
-                    st.success("Conta criada! Vá para Login.")
-                except: st.error("E-mail já cadastrado.")
+                st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
+                st.success("Conta criada!")
     st.stop()
 
 u_log = st.session_state["user_email"]
 
-# --- PASSO 6: BARRA LATERAL (USUÁRIO E LOGOUT) ---
+# --- PASSO 6: BARRA LATERAL (LOGOUT) ---
 with st.sidebar:
     st.write(f"Usuário: **{u_log}**")
     if st.button("🚪 Sair", key="btn_out", use_container_width=True):
@@ -85,7 +76,7 @@ with st.sidebar:
     with st.expander("➕ Novo Template"):
         with st.form("f_new_tmp", clear_on_submit=True):
             tn = st.text_input("Nome (ex: Internet)")
-            tc = st.selectbox("Categoria", ["Alimentação", "Transporte", "Contas Fixas", "Saúde", "Educação", "Salário/Renda"])
+            tc = st.selectbox("Categoria", ["Alimentação", "Transporte", "Saúde", "Educação", "Salário/Renda"])
             td = st.text_input("Descrição padrão")
             tv = st.number_input("Valor padrão", step=0.01)
             if st.form_submit_button("Criar"):
@@ -101,16 +92,15 @@ with st.sidebar:
                 st.rerun()
     except: pass
 
-# --- PASSO 8: LANÇAMENTOS E FERRAMENTAS ---
+# --- PASSO 8: LANÇAMENTOS E EDIÇÃO ---
 st.title("📊 Painel Financeiro")
 col1, col2 = st.columns([1, 2])
-
 with col1:
     st.subheader("➕ Novo Registro")
     with st.form("f_add", clear_on_submit=True):
         d = st.date_input("Data", datetime.now())
         ds = st.text_input("Descrição")
-        c = st.selectbox("Categoria", ["Alimentação", "Transporte", "Lazer", "Contas Fixas", "Saúde", "Educação", "Salário/Renda"])
+        c = st.selectbox("Categoria", ["Alimentação", "Transporte", "Saúde", "Educação", "Salário/Renda"])
         v = st.number_input("Valor", min_value=0.0, step=0.01)
         t = st.radio("Tipo", ["Gasto", "Receita"])
         if st.form_submit_button("Salvar"):
@@ -118,34 +108,24 @@ with col1:
             st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": c, "description": ds, "value": val_f, "user_email": u_log}]).execute()
             st.rerun()
 
-    if tmp_data:
-        st.markdown("---")
-        st.subheader("⚡ Atalhos")
-        cols = st.columns(2)
-        for i, t in enumerate(tmp_data):
-            with cols[i % 2]:
-                if st.button(f"📌 {t['template_name']}", key=f"t_btn_{i}", use_container_width=True):
-                    st_supabase.table("transactions").insert([{"date": datetime.now().strftime("%Y-%m-%d"), "category": t['category'], "description": t['description'], "value": t['value'], "user_email": u_log}]).execute()
-                    st.rerun()
-
     st.markdown("---")
     st.subheader("📝 Editar/Excluir")
     id_op = st.number_input("ID do lançamento:", min_value=1, step=1, key="id_op")
     ce1, ce2 = st.columns(2)
     with ce1:
-        if st.button("🗑️ Deletar ID"):
+        if st.button("🗑️ Deletar"):
             st_supabase.table("transactions").delete().eq("id", id_op).eq("user_email", u_log).execute()
             st.rerun()
     with ce2:
         if id_op:
             res_v = st_supabase.table("transactions").select("value").eq("id", id_op).eq("user_email", u_log).execute()
             if res_v.data:
-                nv = st.number_input("Novo Valor:", value=float(res_v.data[0]['value']), key="nv_input")
+                nv = st.number_input("Novo Valor:", value=float(res_v.data[0]['value']), key="nv_in")
                 if st.button("💾 Salvar"):
                     st_supabase.table("transactions").update({"value": nv}).eq("id", id_op).execute()
                     st.rerun()
 
-# --- PASSO 9: VISUALIZAÇÃO E DASHBOARD ---
+# --- PASSO 9: DASHBOARD E VISUALIZAÇÃO ---
 try:
     data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).order("date", desc=True).execute().data
     df = pd.DataFrame(data_res)
