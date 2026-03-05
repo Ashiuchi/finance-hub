@@ -116,12 +116,36 @@ with c2:
         evs = [{"title": f"{i['description']} (R$ {abs(i['value']):.2f})", "start": i['date'], "color": "#ff4b4b" if i['value'] < 0 else "#28a745"} for i in data_res]
         calendar(events=evs, options={"height": 500}, key="cal_main")
 
-# --- PASSO 9: GRÁFICO TENDÊNCIA E EXTRATO ---
+# --- PASSO 9: GRÁFICO TENDÊNCIA E EXTRATO (VERSÃO LIMPA) ---
 st.markdown("---")
 if data_res:
     df = pd.DataFrame(data_res)
-    st.subheader("📈 Tendência por Pagamento")
-    fig_b = px.bar(df, x="date", y="value", color="payment_method", barmode="group")
-    fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+    # Convertemos para data pura (sem horas) para evitar os milissegundos no gráfico
+    df['date_clean'] = pd.to_datetime(df['date']).dt.strftime('%d/%Y') # Ou '%d/%m/%Y' se preferir
+    
+    st.subheader("📈 Movimentação Mensal por Método")
+    
+    # Criamos o gráfico usando a coluna formatada
+    fig_b = px.bar(
+        df, 
+        x="date_clean", 
+        y="value", 
+        color="payment_method", 
+        barmode="group",
+        labels={"date_clean": "Mês/Ano", "value": "Valor (R$)"}
+    )
+    
+    # Forçamos o eixo X a não inventar horários entre as datas
+    fig_b.update_xaxes(type='category') 
+    
+    fig_b.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', 
+        plot_bgcolor='rgba(0,0,0,0)', 
+        font_color="white",
+        xaxis_title=None
+    )
+    
     st.plotly_chart(fig_b, use_container_width=True)
+    
+    # Exibição da tabela logo abaixo
     st.dataframe(df[['id', 'date', 'description', 'payment_method', 'value']], use_container_width=True, hide_index=True)
