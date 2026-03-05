@@ -5,8 +5,9 @@ from streamlit_calendar import calendar
 import plotly.express as px
 from datetime import datetime
 
-# --- CONFIGURAÇÃO ---
+# --- PASSO 1: CONFIGURAÇÃO ---
 st.set_page_config(page_title="Finance Hub - Ashiuchi", layout="wide", initial_sidebar_state="expanded")
+
 bg_img = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80"
 st.markdown(f"""
     <style>
@@ -17,14 +18,14 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CONEXÃO ---
+# --- PASSO 2: CONEXÃO ---
 try:
     st_supabase = st.connection("supabase", type=SupabaseConnection, 
                                 url=st.secrets["connections"]["supabase"]["url"], 
                                 key=st.secrets["connections"]["supabase"]["key"])
 except: st.error("Erro de Conexão."); st.stop()
 
-# --- ACESSO ---
+# --- PASSO 3: ACESSO ---
 if "user_email" not in st.session_state:
     el, pl = st.text_input("E-mail"), st.text_input("Senha", type="password")
     if st.button("Entrar"):
@@ -34,11 +35,11 @@ if "user_email" not in st.session_state:
 
 u_log = st.session_state["user_email"]
 
-# --- BUSCA DE DADOS (TABELA ÚNICA) ---
+# --- PASSO 4: BUSCA E TRATAMENTO DE DADOS ---
 data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).execute().data
 today = datetime.now().date()
 
-# --- SIDEBAR (GRÁFICO DE PIZZA) ---
+# --- PASSO 5: BARRA LATERAL ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
     if st.button("🚪 Sair", use_container_width=True): st.session_state.clear(); st.rerun()
@@ -53,12 +54,12 @@ with st.sidebar:
             fig_p.update_layout(showlegend=False, margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig_p, use_container_width=True)
 
-# --- PAINEL PRINCIPAL ---
-st.title("📊 Painel de Controle Unificado")
+# --- PASSO 6: PAINEL PRINCIPAL ---
+st.title("📊 Painel Unificado")
 c1, c2 = st.columns([1, 2.5])
 
 with c1:
-    st.subheader("➕ Novo Lançamento")
+    st.subheader("➕ Novo Registro")
     default_date = datetime.now()
     if "cal_date" in st.session_state:
         try: default_date = datetime.strptime(st.session_state["cal_date"], "%Y-%m-%d")
@@ -70,18 +71,18 @@ with c1:
         fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"])
         v = st.number_input("Valor", step=0.01)
         t = st.radio("Tipo", ["Gasto", "Receita"])
-        if st.form_submit_button("Confirmar"):
+        if st.form_submit_button("Lançar"):
             val_f = -v if t == "Gasto" else v
             st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}]).execute(); st.rerun()
 
+# --- PASSO 7: CALENDÁRIO INTELIGENTE ---
 with c2:
     events = []
     if data_res:
         for i in data_res:
             event_date = datetime.strptime(i['date'], "%Y-%m-%d").date()
-            # LÓGICA DE CORES: Futuro = Amarelo | Hoje/Passado = Vermelho/Verde
             if event_date > today:
-                color = "#ffc107" # Amarelo para lançamentos futuros
+                color = "#ffc107" # Amarelo para o futuro (agendamentos)
             else:
                 color = "#ff4b4b" if i['value'] < 0 else "#28a745"
             events.append({"title": f"{i['description']} (R$ {abs(i['value']):.2f})", "start": i['date'], "color": color})
@@ -90,16 +91,16 @@ with c2:
     if cal and "callback" in cal and cal["callback"] == "dateClick":
         st.session_state["cal_date"] = cal["dateClick"]["dateStr"].split("T")[0]; st.rerun()
 
-# --- TABELA DE MANUTENÇÃO ÚNICA ---
+# --- PASSO 8: TABELA EDITÁVEL (COM CORREÇÃO DE TIPO) ---
 st.markdown("---")
 if data_res:
     df_f = pd.DataFrame(data_res)
-    st.subheader("📂 Gestão de Lançamentos (Reais e Futuros)")
+    # CORREÇÃO DO ERRO: Converter string para datetime antes de passar ao editor
+    df_f['date'] = pd.to_datetime(df_f['date']).dt.date
     
-    # Cálculo de Previsão de Saldo
-    total_ent = df_f[df_f['value'] > 0]['value'].sum()
-    total_sai = df_f[df_f['value'] < 0]['value'].sum()
-    st.metric("Saldo Previsto no Mês (Lançamentos Totais)", f"R$ {total_ent + total_sai:,.2f}", delta=f"R$ {total_ent:,.2f} Entradas")
+    st.subheader("📂 Gestão de Lançamentos (Reais e Futuros)")
+    total_val = df_f['value'].sum()
+    st.metric("Saldo Previsto no Mês", f"R$ {total_val:,.2f}")
 
     edited_df = st.data_editor(
         df_f[['id', 'date', 'category', 'description', 'payment_method', 'value']],
@@ -107,7 +108,7 @@ if data_res:
         column_config={
             "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
             "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"], required=True),
-            "date": st.column_config.DateColumn("Data", required=True)
+            "date": st.column_config.DateColumn("Data", required=True) # Agora compatível!
         }, key="ed_unificado"
     )
 
@@ -116,5 +117,9 @@ if data_res:
         for old_id in df_f['id'].tolist():
             if old_id not in curr_ids: st_supabase.table("transactions").delete().eq("id", old_id).execute()
         for _, r in edited_df.iterrows():
-            st_supabase.table("transactions").update({"date": str(r['date']), "category": r['category'], "description": r['description'], "payment_method": r['payment_method'], "value": r['value']}).eq("id", r['id']).execute()
+            st_supabase.table("transactions").update({
+                "date": str(r['date']), "category": r['category'], 
+                "description": r['description'], "payment_method": r['payment_method'], 
+                "value": r['value']
+            }).eq("id", r['id']).execute()
         st.success("Painel atualizado!"); st.rerun()
