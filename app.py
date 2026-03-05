@@ -64,7 +64,7 @@ with st.sidebar:
     st.caption("⚙️ MEUS TEMPLATES")
     with st.expander("➕ Novo Template"):
         with st.form("f_tmp_side", clear_on_submit=True):
-            tn = st.text_input("Nome"); tc = st.selectbox("Categoria", ["Alimentação", "Venda Scripts", "Transporte", "Certificações", "Infra"])
+            tn = st.text_input("Nome"); tc = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
             tv = st.number_input("Valor Padrão", step=0.01)
             if st.form_submit_button("Salvar"):
                 st_supabase.table("templates").insert([{"template_name": tn, "category": tc, "value": tv, "user_email": u_log}]).execute(); st.rerun()
@@ -76,8 +76,8 @@ with c1:
     st.subheader("➕ Novo Registro")
     with st.form("f_add", clear_on_submit=True):
         d = st.date_input("Data", datetime.now()); ds = st.text_input("Descrição")
-        cat = st.selectbox("Categoria", ["Alimentação", "Venda Scripts", "Transporte", "Certificações", "Infra"])
-        fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix"])
+        cat = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
+        fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"])
         v = st.number_input("Valor", min_value=0.0, step=0.01); t = st.radio("Tipo", ["Gasto", "Receita"])
         if st.form_submit_button("Lançar"):
             val_f = -v if t == "Gasto" else v
