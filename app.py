@@ -113,8 +113,8 @@ if data_res:
             df_full[['id', 'date', 'category', 'description', 'payment_method', 'value']],
             use_container_width=True, hide_index=True, num_rows="dynamic",
             column_config={
-                "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Venda Scripts", "Transporte", "Certificações", "Infra"], required=True),
-                "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix"], required=True)
+                "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
+                "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"], required=True)
             }, key="editor_vfinal"
         )
         if st.button("💾 Sincronizar Alterações"):
