@@ -42,7 +42,7 @@ u_log = st.session_state["user_email"]
 data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).execute().data
 temp_res = st_supabase.table("templates").select("*").eq("user_email", u_log).execute().data
 
-# --- PASSO 6: BARRA LATERAL (PIZZA + TEMPLATES COM DATA) ---
+# --- PASSO 6: BARRA LATERAL (GRÁFICO + TEMPLATES) ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
     if st.button("🚪 Sair", use_container_width=True): st.session_state.clear(); st.rerun()
@@ -62,20 +62,20 @@ with st.sidebar:
     st.caption("⚙️ MEUS TEMPLATES")
     with st.expander("➕ Agendar Template"):
         with st.form("f_tmp", clear_on_submit=True):
-            tn = st.text_input("Nome (ex: Aluguel)")
+            tn = st.text_input("Nome do Template")
             tc = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
             td = st.date_input("Data do Vencimento", datetime.now())
             tv = st.number_input("Valor", step=0.01)
             if st.form_submit_button("Salvar"):
+                # Linha 70 Corrigida: Certifique-se de ter rodado o SQL acima
                 st_supabase.table("templates").insert([{"template_name": tn, "category": tc, "value": tv, "user_email": u_log, "due_date": td.strftime("%Y-%m-%d")}]).execute(); st.rerun()
 
-# --- PASSO 7: NOVO REGISTRO (INTEGRADO AO CALENDÁRIO) ---
-st.title("📊 Gestão Financeira Inteligente")
+# --- PASSO 7: NOVO REGISTRO ---
+st.title("📊 Painel de Gestão")
 c1, c2 = st.columns([1, 2.5])
 
 with c1:
     st.subheader("➕ Novo Registro")
-    # Lógica segura para data capturada
     default_date = datetime.now()
     if "cal_date" in st.session_state:
         try: default_date = datetime.strptime(st.session_state["cal_date"], "%Y-%m-%d")
@@ -88,7 +88,7 @@ with c1:
         fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"])
         v = st.number_input("Valor", min_value=0.0, step=0.01)
         t = st.radio("Tipo", ["Gasto", "Receita"])
-        if st.form_submit_button("Confirmar Lançamento"):
+        if st.form_submit_button("Lançar"):
             val_f = -v if t == "Gasto" else v
             st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}]).execute(); st.rerun()
 
@@ -102,12 +102,11 @@ with c2:
             d_t = t.get('due_date', datetime.now().strftime("%Y-%m-%d"))
             events.append({"title": f"📝 Sugestão: {t['template_name']}", "start": d_t, "color": "#ffc107"})
             
-    cal = calendar(events=events, options={"height": 450, "selectable": True}, key="cal_finance")
+    cal = calendar(events=events, options={"height": 450, "selectable": True}, key="cal_fin")
     
-    # CORREÇÃO DO KEYERROR: Verificação de segurança antes de acessar as chaves
     if cal and "callback" in cal and cal["callback"] == "dateClick":
         if "dateClick" in cal and "dateStr" in cal["dateClick"]:
-            new_date = cal["dateClick"]["dateStr"].split("T")[0] # Limpa se vier com hora
+            new_date = cal["dateClick"]["dateStr"].split("T")[0]
             if st.session_state.get("cal_date") != new_date:
                 st.session_state["cal_date"] = new_date
                 st.rerun()
@@ -140,4 +139,4 @@ if data_res:
                 if old_id not in curr_ids: st_supabase.table("transactions").delete().eq("id", old_id).execute()
             for _, r in edited_df.iterrows():
                 st_supabase.table("transactions").update({"date": str(r['date']), "category": r['category'], "description": r['description'], "payment_method": r['payment_method'], "value": r['value']}).eq("id", r['id']).execute()
-            st.success("Sincronizado!"); st.rerun
+            st.rerun()
