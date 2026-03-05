@@ -42,14 +42,14 @@ u_log = st.session_state["user_email"]
 data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).execute().data
 temp_res = st_supabase.table("templates").select("*").eq("user_email", u_log).execute().data
 
-# --- PASSO 6: BARRA LATERAL (GRÁFICO + TEMPLATE COM DATA) ---
+# --- PASSO 6: BARRA LATERAL (PIZZA + TEMPLATES COM DATA) ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
     if st.button("🚪 Sair", use_container_width=True): st.session_state.clear(); st.rerun()
     
     if data_res:
-        df_g = pd.DataFrame(data_res)
-        df_g = df_g[df_g['value'] < 0].copy()
+        df_side = pd.DataFrame(data_res)
+        df_g = df_side[df_side['value'] < 0].copy()
         if not df_g.empty:
             df_g['abs_v'] = df_g['value'].abs()
             st.markdown("---")
@@ -63,9 +63,7 @@ with st.sidebar:
     with st.expander("➕ Agendar Template"):
         with st.form("f_tmp", clear_on_submit=True):
             tn = st.text_input("Nome (ex: Aluguel)")
-            # Categorias Atualizadas
             tc = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
-            # RESTAURADO: Data no Template
             td = st.date_input("Data do Vencimento", datetime.now())
             tv = st.number_input("Valor", step=0.01)
             if st.form_submit_button("Salvar"):
@@ -77,7 +75,7 @@ c1, c2 = st.columns([1, 2.5])
 
 with c1:
     st.subheader("➕ Novo Registro")
-    # Lógica para capturar data clicada no calendário
+    # Lógica segura para data capturada
     default_date = datetime.now()
     if "cal_date" in st.session_state:
         try: default_date = datetime.strptime(st.session_state["cal_date"], "%Y-%m-%d")
@@ -94,23 +92,27 @@ with c1:
             val_f = -v if t == "Gasto" else v
             st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}]).execute(); st.rerun()
 
-# --- PASSO 8: CALENDÁRIO COM INTERAÇÃO ---
+# --- PASSO 8: CALENDÁRIO COM INTERAÇÃO SEGURA ---
 with c2:
     events = []
     if data_res:
         for i in data_res: events.append({"title": f"✅ {i['description']}", "start": i['date'], "color": "#ff4b4b" if i['value'] < 0 else "#28a745"})
     if temp_res:
         for t in temp_res: 
-            # Usa a due_date do template se disponível, senão usa hoje
             d_t = t.get('due_date', datetime.now().strftime("%Y-%m-%d"))
             events.append({"title": f"📝 Sugestão: {t['template_name']}", "start": d_t, "color": "#ffc107"})
             
     cal = calendar(events=events, options={"height": 450, "selectable": True}, key="cal_finance")
-    if cal.get("callback") == "dateClick":
-        st.session_state["cal_date"] = cal["dateClick"]["dateStr"]
-        st.rerun()
+    
+    # CORREÇÃO DO KEYERROR: Verificação de segurança antes de acessar as chaves
+    if cal and "callback" in cal and cal["callback"] == "dateClick":
+        if "dateClick" in cal and "dateStr" in cal["dateClick"]:
+            new_date = cal["dateClick"]["dateStr"].split("T")[0] # Limpa se vier com hora
+            if st.session_state.get("cal_date") != new_date:
+                st.session_state["cal_date"] = new_date
+                st.rerun()
 
-# --- PASSO 9: GRÁFICO E TABELA EDITÁVEL (CATEGORIAS ATUALIZADAS) ---
+# --- PASSO 9: GRÁFICO E TABELA EDITÁVEL ---
 st.markdown("---")
 if data_res:
     df_f = pd.DataFrame(data_res)
@@ -138,4 +140,4 @@ if data_res:
                 if old_id not in curr_ids: st_supabase.table("transactions").delete().eq("id", old_id).execute()
             for _, r in edited_df.iterrows():
                 st_supabase.table("transactions").update({"date": str(r['date']), "category": r['category'], "description": r['description'], "payment_method": r['payment_method'], "value": r['value']}).eq("id", r['id']).execute()
-            st.success("Sincronizado!"); st.rerun()
+            st.success("Sincronizado!"); st.rerun
