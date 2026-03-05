@@ -13,19 +13,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- PASSO 2: BLINDAGEM VISUAL E SIDEBAR FIXA (REFORÇADA) ---
-st.markdown("""
+# --- PASSO 2: BLINDAGEM VISUAL, SIDEBAR FIXA E IMAGEM DE FUNDO ---
+# Substitua a URL abaixo pela imagem de sua preferência (ex: algo sobre tecnologia ou finanças).
+bg_img_url = "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80"
+
+st.markdown(f"""
     <style>
-    /* Esconde o Header (Git/Fork) */
-    header[data-testid="stHeader"] { display: none !important; }
+    /* 1. Imagem de Fundo */
+    .stApp {{
+        background-image: url("{bg_img_url}");
+        background-attachment: fixed;
+        background-size: cover;
+    }}
     
-    /* Trava a Sidebar para nunca fechar */
-    [data-testid="stSidebar"] { min-width: 260px !important; max-width: 260px !important; }
-    [data-testid="stSidebar"] button[title="Collapse sidebar"] { display: none !important; }
+    /* 2. Sobreposição para melhorar contraste (Vidro Fosco) */
+    .stApp > header, .stApp > div {{
+        background-color: rgba(14, 17, 23, 0.85); 
+    }}
+
+    /* 3. Blindagem de Interface */
+    header[data-testid="stHeader"] {{ display: none !important; }}
+    [data-testid="stSidebar"] {{ min-width: 260px !important; max-width: 260px !important; }}
+    [data-testid="stSidebar"] button[title="Collapse sidebar"] {{ display: none !important; }}
     
-    /* Ajuste de espaçamento global */
-    .block-container { padding-top: 1.5rem; padding-bottom: 1rem; }
-    footer {visibility: hidden;}
+    footer {{visibility: hidden;}}
     </style>
     """, unsafe_allow_html=True)
 
@@ -35,7 +46,7 @@ try:
                                 url=st.secrets["connections"]["supabase"]["url"], 
                                 key=st.secrets["connections"]["supabase"]["key"])
 except Exception as e:
-    st.error(f"Erro de Infra: {e}"); st.stop()
+    st.error(f"Erro: {e}"); st.stop()
 
 # --- PASSO 4: VALIDAÇÃO ---
 def is_valid_email(email):
@@ -52,20 +63,14 @@ if "user_email" not in st.session_state:
             if res.data:
                 st.session_state["user_email"] = res.data[0]["email"]
                 st.rerun()
-    with t2:
-        ne, np = st.text_input("Novo E-mail", key="r_e"), st.text_input("Senha", type="password", key="r_p")
-        if st.button("Criar Conta", key="r_btn"):
-            if is_valid_email(ne) and len(np) >= 6:
-                st_supabase.table("app_users").insert([{"email": ne, "password": np}]).execute()
-                st.success("Criado!")
     st.stop()
 
 u_log = st.session_state["user_email"]
 
-# --- PASSO 6: BARRA LATERAL FIXA (CONTEÚDO) ---
+# --- PASSO 6: BARRA LATERAL FIXA ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
-    if st.button("🚪 Sair", key="btn_logout", use_container_width=True):
+    if st.button("🚪 Sair", key="btn_out", use_container_width=True):
         st.session_state.clear(); st.rerun()
     
     st.markdown("---")
@@ -79,9 +84,9 @@ with st.sidebar:
                 st_supabase.table("templates").insert([{"template_name": tn, "category": tc, "description": td, "value": tv, "user_email": u_log}]).execute()
                 st.rerun()
 
-# --- PASSO 7: PAINEL DE CONTROLE (NOVO REGISTRO) ---
+# --- PASSO 7: PAINEL DE CONTROLE (REGISTRO) ---
 st.title("📊 Gestão & Fluxo de Caixa")
-c1, c2 = st.columns([1, 2.5]) # Aumentamos o espaço do calendário
+c1, c2 = st.columns([1, 2.5])
 
 with c1:
     st.subheader("➕ Novo Registro")
@@ -97,13 +102,6 @@ with c1:
                 {"date": d.strftime("%Y-%m-%d"), "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}
             ]).execute(); st.rerun()
 
-    st.markdown("---")
-    st.subheader("🛠️ Administração")
-    id_op = st.number_input("ID para exclusão:", min_value=1, step=1)
-    if st.button("🗑️ Deletar Registro"):
-        st_supabase.table("transactions").delete().eq("id", id_op).eq("user_email", u_log).execute()
-        st.rerun()
-
 # --- PASSO 8: CALENDÁRIO COMERCIAL (VISUALIZAÇÃO) ---
 with c2:
     st.subheader("📅 Calendário de Transações")
@@ -113,25 +111,13 @@ with c2:
             events = []
             for item in data_res:
                 color = "#ff4b4b" if item['value'] < 0 else "#28a745"
-                events.append({
-                    "title": f"{item['description']} (R$ {abs(item['value']):.2f})",
-                    "start": item['date'],
-                    "backgroundColor": color,
-                    "borderColor": color
-                })
-            
-            cal_options = {
-                "headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,listMonth"},
-                "initialView": "dayGridMonth",
-                "height": 600, # Fixamos a altura para não sumir o resto da página
-            }
-            calendar(events=events, options=cal_options, key="finance_calendar")
-    except:
-        st.info("Aguardando lançamentos para gerar o calendário.")
+                events.append({"title": f"{item['description']} (R$ {abs(item['value']):.2f})", "start": item['date'], "backgroundColor": color, "borderColor": color})
+            calendar(events=events, options={"headerToolbar": {"left": "prev,next today", "center": "title", "right": "dayGridMonth,listMonth"}, "initialView": "dayGridMonth", "height": 600}, key="finance_calendar")
+    except: st.info("Adicione lançamentos.")
 
-# --- PASSO 9: EXTRATO DETALHADO (PARTE DE BAIXO) ---
+# --- PASSO 9: EXTRATO CONSOLIDADO ---
 st.markdown("---")
 if data_res:
     df = pd.DataFrame(data_res)
-    st.subheader("📂 Extrato Consolidado")
+    st.subheader("📂 Extrato Detalhado")
     st.dataframe(df[['id', 'date', 'description', 'payment_method', 'value']], use_container_width=True, hide_index=True)
