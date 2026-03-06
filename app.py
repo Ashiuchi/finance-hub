@@ -67,7 +67,7 @@ with st.sidebar:
     with st.expander("➕ Novo Template"):
         with st.form("f_tmp_side", clear_on_submit=True):
             tn = st.text_input("Nome")
-            tc = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
+            tc = st.selectbox("Categoria", ["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"])
             td = st.date_input("Data Prevista", datetime.now())
             tv = st.number_input("Valor", step=0.01)
             if st.form_submit_button("Salvar Agendamento"):
