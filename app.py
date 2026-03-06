@@ -87,7 +87,7 @@ with c1:
     with st.form("f_add", clear_on_submit=True):
         d = st.date_input("Data", default_date)
         ds = st.text_input("Descrição")
-        cat = st.selectbox("Categoria", ["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"])
+        cat = st.selectbox("Categoria", ["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"])
         fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"])
         v = st.number_input("Valor", step=0.01)
         t = st.radio("Tipo", ["Gasto", "Receita"])
@@ -127,7 +127,7 @@ if data_res:
             df_f[['id', 'date', 'category', 'description', 'payment_method', 'value']],
             use_container_width=True, hide_index=True, num_rows="dynamic",
             column_config={
-                "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
+                "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
                 "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"], required=True),
                 "date": st.column_config.DateColumn("Data", required=True)
             }, key="ed_unificado"
