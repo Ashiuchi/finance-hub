@@ -23,26 +23,41 @@ try:
     st_supabase = st.connection("supabase", type=SupabaseConnection, 
                                 url=st.secrets["connections"]["supabase"]["url"], 
                                 key=st.secrets["connections"]["supabase"]["key"])
-except: st.error("Erro de Conexão."); st.stop()
-
-# --- PASSO 3: ACESSO ---
-if "user_email" not in st.session_state:
-    el, pl = st.text_input("E-mail"), st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        res = st_supabase.table("app_users").select("email").eq("email", el).eq("password", pl).execute()
-        if res.data: st.session_state["user_email"] = res.data[0]["email"]; st.rerun()
+except: 
+    st.error("Erro de Conexão. Verifique os Secrets.")
     st.stop()
+
+# --- PASSO 3: SISTEMA DE ACESSO (CORRIGIDO) ---
+if "user_email" not in st.session_state:
+    st.title("💸 Finance Hub: Acesso")
+    # Usando formulário para garantir que o Enter e o Clique funcionem sempre
+    with st.form("login_form"):
+        el = st.text_input("E-mail")
+        pl = st.text_input("Senha", type="password")
+        submit = st.form_submit_button("Entrar", use_container_width=True)
+        
+        if submit:
+            res = st_supabase.table("app_users").select("email").eq("email", el).eq("password", pl).execute()
+            if res.data:
+                st.session_state["user_email"] = res.data[0]["email"]
+                st.rerun() # Força o recarregamento com a nova sessão
+            else:
+                st.error("Credenciais inválidas.")
+    st.stop() 
 
 u_log = st.session_state["user_email"]
 
-# --- PASSO 4: BUSCA E TRATAMENTO DE DADOS ---
+# --- PASSO 4: BUSCA DE DADOS ---
 data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).execute().data
 today = datetime.now().date()
 
 # --- PASSO 5: BARRA LATERAL ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
-    if st.button("🚪 Sair", use_container_width=True): st.session_state.clear(); st.rerun()
+    if st.button("🚪 Sair", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+    
     if data_res:
         df_side = pd.DataFrame(data_res)
         df_g = df_side[df_side['value'] < 0].copy()
@@ -60,10 +75,12 @@ c1, c2 = st.columns([1, 2.5])
 
 with c1:
     st.subheader("➕ Novo Registro")
+    # Recupera data do clique no calendário
     default_date = datetime.now()
     if "cal_date" in st.session_state:
         try: default_date = datetime.strptime(st.session_state["cal_date"], "%Y-%m-%d")
         except: pass
+
     with st.form("f_add", clear_on_submit=True):
         d = st.date_input("Data", default_date)
         ds = st.text_input("Descrição")
@@ -73,7 +90,8 @@ with c1:
         t = st.radio("Tipo", ["Gasto", "Receita"])
         if st.form_submit_button("Lançar"):
             val_f = -v if t == "Gasto" else v
-            st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}]).execute(); st.rerun()
+            st_supabase.table("transactions").insert([{"date": d.strftime("%Y-%m-%d"), "category": cat, "description": ds, "value": val_f, "payment_method": fp, "user_email": u_log}]).execute()
+            st.rerun()
 
 # --- PASSO 7: CALENDÁRIO INTELIGENTE ---
 with c2:
@@ -81,26 +99,23 @@ with c2:
     if data_res:
         for i in data_res:
             event_date = datetime.strptime(i['date'], "%Y-%m-%d").date()
-            if event_date > today:
-                color = "#ffc107" # Amarelo para o futuro (agendamentos)
-            else:
-                color = "#ff4b4b" if i['value'] < 0 else "#28a745"
+            # Amarelo para futuro, Verde/Vermelho para hoje/passado
+            color = "#ffc107" if event_date > today else ("#ff4b4b" if i['value'] < 0 else "#28a745")
             events.append({"title": f"{i['description']} (R$ {abs(i['value']):.2f})", "start": i['date'], "color": color})
     
     cal = calendar(events=events, options={"height": 450, "selectable": True}, key="cal_fin")
     if cal and "callback" in cal and cal["callback"] == "dateClick":
-        st.session_state["cal_date"] = cal["dateClick"]["dateStr"].split("T")[0]; st.rerun()
+        st.session_state["cal_date"] = cal["dateClick"]["dateStr"].split("T")[0]
+        st.rerun()
 
-# --- PASSO 8: TABELA EDITÁVEL (COM CORREÇÃO DE TIPO) ---
+# --- PASSO 8: TABELA EDITÁVEL ---
 st.markdown("---")
 if data_res:
     df_f = pd.DataFrame(data_res)
-    # CORREÇÃO DO ERRO: Converter string para datetime antes de passar ao editor
-    df_f['date'] = pd.to_datetime(df_f['date']).dt.date
+    df_f['date'] = pd.to_datetime(df_f['date']).dt.date # Conversão para evitar erro de tipo
     
-    st.subheader("📂 Gestão de Lançamentos (Reais e Futuros)")
-    total_val = df_f['value'].sum()
-    st.metric("Saldo Previsto no Mês", f"R$ {total_val:,.2f}")
+    st.subheader("📂 Gestão de Lançamentos")
+    st.metric("Saldo Previsto no Mês", f"R$ {df_f['value'].sum():,.2f}")
 
     edited_df = st.data_editor(
         df_f[['id', 'date', 'category', 'description', 'payment_method', 'value']],
@@ -108,7 +123,7 @@ if data_res:
         column_config={
             "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
             "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"], required=True),
-            "date": st.column_config.DateColumn("Data", required=True) # Agora compatível!
+            "date": st.column_config.DateColumn("Data", required=True)
         }, key="ed_unificado"
     )
 
@@ -122,4 +137,5 @@ if data_res:
                 "description": r['description'], "payment_method": r['payment_method'], 
                 "value": r['value']
             }).eq("id", r['id']).execute()
-        st.success("Painel atualizado!"); st.rerun()
+        st.success("Dados sincronizados!")
+        st.rerun()
