@@ -44,8 +44,10 @@ u_log = st.session_state["user_email"]
 # --- PASSO 4: BUSCA DE DADOS ---
 data_res = st_supabase.table("transactions").select("*").eq("user_email", u_log).execute().data
 today = datetime.now().date()
+# Lista oficial de categorias atualizada
+cats = ["Alimentação", "Pet", "Transporte", "Lazer", "Moradia", "miscellaneous"]
 
-# --- PASSO 5: BARRA LATERAL (PIZZA + TEMPLATES RESTAURADOS) ---
+# --- PASSO 5: BARRA LATERAL (TEMPLATES COM CRÉDITO) ---
 with st.sidebar:
     st.subheader(f"👤 {u_log}")
     if st.button("🚪 Sair", use_container_width=True): st.session_state.clear(); st.rerun()
@@ -61,17 +63,18 @@ with st.sidebar:
             fig_p.update_layout(showlegend=False, margin=dict(t=0,b=0,l=0,r=0), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig_p, use_container_width=True)
 
-    # RESTAURAÇÃO: CRIAÇÃO DE TEMPLATES
     st.markdown("---")
-    st.caption("⚙️ AGENDAR RECORRÊNCIA")
+    st.caption("⚙️ AGENDAR RECORRÊNCIA (SALÁRIO/ALUGUEL)")
     with st.expander("➕ Novo Template"):
         with st.form("f_tmp_side", clear_on_submit=True):
-            tn = st.text_input("Nome")
-            tc = st.selectbox("Categoria", ["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"])
+            tn = st.text_input("Nome (ex: Salário)")
+            tc = st.selectbox("Categoria", cats)
             td = st.date_input("Data Prevista", datetime.now())
             tv = st.number_input("Valor", step=0.01)
-            if st.form_submit_button("Salvar Agendamento"):
-                st_supabase.table("transactions").insert([{"date": td.strftime("%Y-%m-%d"), "category": tc, "description": f"TEMP: {tn}", "value": -tv, "payment_method": "Pix", "user_email": u_log}]).execute()
+            tt = st.radio("Tipo", ["Gasto", "Receita"], horizontal=True) # Adicionado Tipo no Template
+            if st.form_submit_button("Agendar"):
+                val_f = -tv if tt == "Gasto" else tv
+                st_supabase.table("transactions").insert([{"date": td.strftime("%Y-%m-%d"), "category": tc, "description": f"TEMP: {tn}", "value": val_f, "payment_method": "Pix", "user_email": u_log}]).execute()
                 st.rerun()
 
 # --- PASSO 6: PAINEL PRINCIPAL ---
@@ -87,7 +90,7 @@ with c1:
     with st.form("f_add", clear_on_submit=True):
         d = st.date_input("Data", default_date)
         ds = st.text_input("Descrição")
-        cat = st.selectbox("Categoria", ["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"])
+        cat = st.selectbox("Categoria", cats)
         fp = st.selectbox("Pagamento", ["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"])
         v = st.number_input("Valor", step=0.01)
         t = st.radio("Tipo", ["Gasto", "Receita"])
@@ -107,7 +110,7 @@ with c2:
     if cal and "callback" in cal and cal["callback"] == "dateClick":
         st.session_state["cal_date"] = cal["dateClick"]["dateStr"].split("T")[0]; st.rerun()
 
-# --- PASSO 8: GRÁFICO DE BARRAS (RESTAURADO) ---
+# --- PASSO 8: GRÁFICO DE BARRAS ---
 st.markdown("---")
 if data_res:
     df_f = pd.DataFrame(data_res)
@@ -116,7 +119,7 @@ if data_res:
     with col_chart:
         st.subheader("📈 Uso por Forma de Pagamento")
         fig_b = px.bar(df_f, x="payment_method", y="value", color="category", barmode="group")
-        fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", xaxis_title=None)
+        fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
         st.plotly_chart(fig_b, use_container_width=True)
 
     with col_table:
@@ -127,7 +130,7 @@ if data_res:
             df_f[['id', 'date', 'category', 'description', 'payment_method', 'value']],
             use_container_width=True, hide_index=True, num_rows="dynamic",
             column_config={
-                "category": st.column_config.SelectboxColumn("Categoria", options=["Alimentação", "Moradia", "Pet", "Transporte", "Lazer", "miscellaneous"], required=True),
+                "category": st.column_config.SelectboxColumn("Categoria", options=cats, required=True),
                 "payment_method": st.column_config.SelectboxColumn("Pagamento", options=["Dinheiro", "Cartão Crédito", "Cartão Débito", "Pix", "Alimentação"], required=True),
                 "date": st.column_config.DateColumn("Data", required=True)
             }, key="ed_unificado"
