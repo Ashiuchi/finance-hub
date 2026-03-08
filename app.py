@@ -79,8 +79,7 @@ with st.sidebar:
                 val_f = -tv if tt == "Gasto" else tv
                 st_supabase.table("transactions").insert([{"date": td.strftime("%Y-%m-%d"), "category": tc, "description": f"TEMP: {tn}", "value": val_f, "payment_method": "Pix", "user_email": u_log}]).execute(); st.rerun()
 
-# --- PASSO 6: TÍTULO E SALDO EM EVIDÊNCIA (RESTAURADO) ---
-# Criamos duas colunas no topo para separar o título do saldo
+# --- PASSO 6: TÍTULO E SALDO EM EVIDÊNCIA ---
 head_col1, head_col2 = st.columns([2, 1])
 with head_col1:
     st.title("📊 Painel de Controle Unificado")
@@ -88,7 +87,15 @@ with head_col1:
 with head_col2:
     if data_res:
         total_balance = sum(i['value'] for i in data_res)
-        st.metric(label="Saldo Geral Previsto", value=f"R$ {total_balance:,.2f}")
+        # LÓGICA DE COR: Vermelho se negativo, Verde se positivo
+        color_hex = "#ff4b4b" if total_balance < 0 else "#28a745"
+        
+        st.markdown(f"""
+            <div style="text-align: right;">
+                <p style="color: white; margin-bottom: 0;">Saldo Geral Previsto</p>
+                <h2 style="color: {color_hex}; margin-top: 0;">R$ {total_balance:,.2f}</h2>
+            </div>
+            """, unsafe_allow_html=True)
 
 # --- PASSO 7: NOVO REGISTRO ---
 st.markdown("---")
